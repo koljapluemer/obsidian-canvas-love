@@ -1,6 +1,11 @@
 import Cell from "src/classes/cells/Cell";
 import DrawnEdge from "./DrawnEdge";
 import { Coordinate } from "src/classes/Coordinate";
+import EmptyCell from "src/classes/cells/EmptyCell";
+
+// should this class cache the actual Cells as well?
+// or always generate them dynamically?
+// one feels like SSoT violation, the other like wasted compute
 
 export default class DrawnGrid {
 	nodes: DrawnEdge[]
@@ -28,8 +33,8 @@ export default class DrawnGrid {
 		return []
 	}
 
-	public getCellAt(coord: Coordinate): Cell | undefined {
-		return undefined
+	public getCellAt(coord: Coordinate): Cell {
+		return new EmptyCell()
 	}
 
 	public isCellTraversableAt(coord: Coordinate): boolean {
