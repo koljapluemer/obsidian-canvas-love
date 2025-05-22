@@ -349,9 +349,25 @@ export default class DrawnGrid extends AbstractGrid {
 			// For each cell of the node, check if there's a valid attachment point in this direction
 			for (const cell of nodeCells) {
 				const attachmentPoint = this.getAdjacentCoordinate(cell, direction);
-				if (attachmentPoint && this.isCellEmpty(attachmentPoint)) {
-					return attachmentPoint;
+				if (!attachmentPoint) continue; // Skip if first cell is outside grid
+				
+				// Check if attachment point is empty
+				if (!this.isCellEmpty(attachmentPoint)) continue;
+				
+				// Create a temporary cell at the attachment point to check the next cell
+				const tempCell = new EmptyCell();
+				tempCell.row = attachmentPoint.row;
+				tempCell.col = attachmentPoint.col;
+				
+				// Check if the next cell in the same direction is either empty or outside the grid
+				const nextPoint = this.getAdjacentCoordinate(tempCell, direction);
+				if (nextPoint) {
+					// If next point exists, it must be empty
+					if (!this.isCellEmpty(nextPoint)) continue;
 				}
+				// If next point doesn't exist (outside grid), that's also valid
+				
+				return attachmentPoint;
 			}
 		}
 		
@@ -384,6 +400,8 @@ export default class DrawnGrid extends AbstractGrid {
 		let rowIndex: number | null = null;
 		let colIndex: number | null = null;
 
+		console.log(`Current grid dimensions: ${this.getRows()} rows x ${this.getCols()} cols`);
+
 		switch (action) {
 			case 0:
 				rowIndex = this.getRandomCloneableRowIndex();
@@ -411,6 +429,14 @@ export default class DrawnGrid extends AbstractGrid {
 				console.log("Adding empty column to start of grid");
 				this.addEmptyColumnToStartofGrid();
 				break;
+		}
+
+		// Validate grid structure after extension
+		console.log(`New grid dimensions: ${this.getRows()} rows x ${this.getCols()} cols`);
+		if (this.grid.length === 0 || this.grid[0].length === 0) {
+			console.error("Grid structure is invalid after extension!");
+			// Ensure grid has at least one cell
+			this.grid = [[new EmptyCell()]];
 		}
 
 		// Render the grid after cloning for debugging
@@ -459,6 +485,16 @@ export default class DrawnGrid extends AbstractGrid {
 
 			if (attachmentPoint) {
 				console.log(`Found valid attachment point at (${attachmentPoint.row}, ${attachmentPoint.col})`);
+				console.log(`Grid dimensions: ${this.getRows()} rows x ${this.getCols()} cols`);
+				
+				// Verify grid bounds
+				if (attachmentPoint.row < 0 || attachmentPoint.row >= this.getRows() ||
+					attachmentPoint.col < 0 || attachmentPoint.col >= this.getCols()) {
+					console.error(`Attachment point (${attachmentPoint.row}, ${attachmentPoint.col}) is outside grid bounds`);
+					this.extendRandomly();
+					attempts++;
+					continue;
+				}
 				
 				// Create the edge cell
 				const edgeCell = new EdgeCell();
