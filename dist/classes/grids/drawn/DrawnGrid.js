@@ -99,7 +99,7 @@ var DrawnGrid = /** @class */ (function (_super) {
     DrawnGrid.prototype.placeNode = function (node) {
         var coord = null;
         var attempts = 0;
-        var MAX_ATTEMPTS = 10; // Prevent infinite loops
+        var MAX_ATTEMPTS = 100; // Prevent infinite loops
         console.log("Attempting to place node: ".concat(node.ogData.id));
         while (attempts < MAX_ATTEMPTS) {
             coord = this.getRandomLegalNodePlacementCell();
@@ -220,11 +220,34 @@ var DrawnGrid = /** @class */ (function (_super) {
             return null;
         return legalCells[Math.floor(Math.random() * legalCells.length)];
     };
+    DrawnGrid.prototype.isCoordinateInGrid = function (rowIndex, colIndex) {
+        return rowIndex >= 0 && rowIndex < this.getRows() && colIndex >= 0 && colIndex < this.getCols();
+    };
     DrawnGrid.prototype.isRowClonableAt = function (rowIndex) {
-        return rowIndex >= 0 && rowIndex < this.getRows();
+        // First check if row is in grid
+        if (!this.isCoordinateInGrid(rowIndex, 0)) {
+            return false;
+        }
+        // Then check if all cells in the row allow cloning
+        for (var col = 0; col < this.getCols(); col++) {
+            if (!this.grid[rowIndex][col].rowsThatContainMeAreAllowedToBeCloned()) {
+                return false;
+            }
+        }
+        return true;
     };
     DrawnGrid.prototype.isColClonableAt = function (colIndex) {
-        return colIndex >= 0 && colIndex < this.getCols();
+        // First check if column is in grid
+        if (!this.isCoordinateInGrid(0, colIndex)) {
+            return false;
+        }
+        // Then check if all cells in the column allow cloning
+        for (var row = 0; row < this.getRows(); row++) {
+            if (!this.grid[row][colIndex].columnsThatContainMeAreAllowedToBeCloned()) {
+                return false;
+            }
+        }
+        return true;
     };
     DrawnGrid.prototype.getRandomCloneableRowIndex = function () {
         var _this = this;

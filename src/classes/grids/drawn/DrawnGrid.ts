@@ -80,7 +80,7 @@ export default class DrawnGrid extends AbstractGrid {
 	private placeNode(node: ConfiguredNode): void {
 		let coord: Coordinate | null = null;
 		let attempts = 0;
-		const MAX_ATTEMPTS = 10; // Prevent infinite loops
+		const MAX_ATTEMPTS = 100; // Prevent infinite loops
 
 		console.log(`Attempting to place node: ${node.ogData.id}`);
 
@@ -213,12 +213,40 @@ export default class DrawnGrid extends AbstractGrid {
 		return legalCells[Math.floor(Math.random() * legalCells.length)];
 	}
 
+	private isCoordinateInGrid(rowIndex: number, colIndex: number): boolean {
+		return rowIndex >= 0 && rowIndex < this.getRows() && colIndex >= 0 && colIndex < this.getCols();
+	}
+
 	public isRowClonableAt(rowIndex: number): boolean {
-		return rowIndex >= 0 && rowIndex < this.getRows();
+		// First check if row is in grid
+		if (!this.isCoordinateInGrid(rowIndex, 0)) {
+			return false;
+		}
+
+		// Then check if all cells in the row allow cloning
+		for (let col = 0; col < this.getCols(); col++) {
+			if (!this.grid[rowIndex][col].rowsThatContainMeAreAllowedToBeCloned()) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	public isColClonableAt(colIndex: number): boolean {
-		return colIndex >= 0 && colIndex < this.getCols();
+		// First check if column is in grid
+		if (!this.isCoordinateInGrid(0, colIndex)) {
+			return false;
+		}
+
+		// Then check if all cells in the column allow cloning
+		for (let row = 0; row < this.getRows(); row++) {
+			if (!this.grid[row][colIndex].columnsThatContainMeAreAllowedToBeCloned()) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	public getRandomCloneableRowIndex(): number | null {

@@ -33,6 +33,14 @@ export default class EdgeCell extends Cell {
 		return "edgeCell"
 	}
 
+	public columnsThatContainMeAreAllowedToBeCloned(): boolean {
+		return this.renderAsASCII() === "—"
+	}
+
+	public rowsThatContainMeAreAllowedToBeCloned(): boolean {
+		return this.renderAsASCII() === "|"
+	}
+
 
 	public getHumanReadableDataString(): string {
 		const dataString = "----_----"

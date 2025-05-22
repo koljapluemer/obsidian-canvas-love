@@ -12,6 +12,12 @@ var Cell = /** @class */ (function () {
     Cell.prototype.clone = function () {
         return this;
     };
+    Cell.prototype.columnsThatContainMeAreAllowedToBeCloned = function () {
+        return true;
+    };
+    Cell.prototype.rowsThatContainMeAreAllowedToBeCloned = function () {
+        return true;
+    };
     return Cell;
 }());
 exports.default = Cell;

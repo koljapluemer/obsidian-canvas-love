@@ -33,6 +33,12 @@ var EdgeCell = /** @class */ (function (_super) {
     EdgeCell.prototype.getCellType = function () {
         return "edgeCell";
     };
+    EdgeCell.prototype.columnsThatContainMeAreAllowedToBeCloned = function () {
+        return this.renderAsASCII() === "—";
+    };
+    EdgeCell.prototype.rowsThatContainMeAreAllowedToBeCloned = function () {
+        return this.renderAsASCII() === "|";
+    };
     EdgeCell.prototype.getHumanReadableDataString = function () {
         var dataString = "----_----";
         var chars = dataString.split('');

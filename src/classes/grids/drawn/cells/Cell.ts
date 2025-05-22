@@ -21,4 +21,12 @@ export default abstract class Cell {
 	public clone(): Cell {
 		return this;
 	}
+
+	public columnsThatContainMeAreAllowedToBeCloned(): boolean {
+		return true;
+	}
+
+	public rowsThatContainMeAreAllowedToBeCloned(): boolean {
+		return true;
+	}
 }
