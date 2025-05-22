@@ -501,6 +501,42 @@ export default class DrawnGrid extends AbstractGrid {
 			senderEdgeCell.row = senderAttachmentPoint.row;
 			senderEdgeCell.col = senderAttachmentPoint.col;
 			
+			// Set connection and arrow properties for sender
+			const senderDirection = this.getDirectionFromTo(senderAttachmentPoint, senderNode.getCoordinate());
+			if (senderDirection) {
+				// Set connection towards sender
+				switch (senderDirection) {
+					case 'N': senderEdgeCell.connectsToSouth = true; break;
+					case 'E': senderEdgeCell.connectsToWest = true; break;
+					case 'S': senderEdgeCell.connectsToNorth = true; break;
+					case 'W': senderEdgeCell.connectsToEast = true; break;
+				}
+				
+				// Set arrow if needed
+				if (edge.arrowAtSender) {
+					switch (senderDirection) {
+						case 'N': senderEdgeCell.hasArrowSouth = true; break;
+						case 'E': senderEdgeCell.hasArrowWest = true; break;
+						case 'S': senderEdgeCell.hasArrowNorth = true; break;
+						case 'W': senderEdgeCell.hasArrowEast = true; break;
+					}
+				}
+			}
+			
+			// Debug log for sender attachment point
+			console.log("\nSender attachment point properties:");
+			console.log("Connections:");
+			console.log(`  connectsToNorth: ${senderEdgeCell.connectsToNorth}`);
+			console.log(`  connectsToEast:  ${senderEdgeCell.connectsToEast}`);
+			console.log(`  connectsToSouth: ${senderEdgeCell.connectsToSouth}`);
+			console.log(`  connectsToWest:  ${senderEdgeCell.connectsToWest}`);
+			console.log("Arrows:");
+			console.log(`  hasArrowNorth: ${senderEdgeCell.hasArrowNorth}`);
+			console.log(`  hasArrowEast:  ${senderEdgeCell.hasArrowEast}`);
+			console.log(`  hasArrowSouth: ${senderEdgeCell.hasArrowSouth}`);
+			console.log(`  hasArrowWest:  ${senderEdgeCell.hasArrowWest}`);
+			console.log(`\nHuman readable data string: ${senderEdgeCell.getHumanReadableDataString()}\n`);
+			
 			// Create the drawn edge with sender attachment
 			const drawnEdge = new DrawnEdge(edge, senderNode, receiverNode);
 			drawnEdge.addCell(senderEdgeCell);
@@ -529,6 +565,42 @@ export default class DrawnGrid extends AbstractGrid {
 			receiverEdgeCell.row = receiverAttachmentPoint.row;
 			receiverEdgeCell.col = receiverAttachmentPoint.col;
 			
+			// Set connection and arrow properties for receiver
+			const receiverDirection = this.getDirectionFromTo(receiverAttachmentPoint, receiverNode.getCoordinate());
+			if (receiverDirection) {
+				// Set connection towards receiver
+				switch (receiverDirection) {
+					case 'N': receiverEdgeCell.connectsToSouth = true; break;
+					case 'E': receiverEdgeCell.connectsToWest = true; break;
+					case 'S': receiverEdgeCell.connectsToNorth = true; break;
+					case 'W': receiverEdgeCell.connectsToEast = true; break;
+				}
+				
+				// Set arrow if needed
+				if (edge.arrowAtReceiver) {
+					switch (receiverDirection) {
+						case 'N': receiverEdgeCell.hasArrowSouth = true; break;
+						case 'E': receiverEdgeCell.hasArrowWest = true; break;
+						case 'S': receiverEdgeCell.hasArrowNorth = true; break;
+						case 'W': receiverEdgeCell.hasArrowEast = true; break;
+					}
+				}
+			}
+			
+			// Debug log for receiver attachment point
+			console.log("\nReceiver attachment point properties:");
+			console.log("Connections:");
+			console.log(`  connectsToNorth: ${receiverEdgeCell.connectsToNorth}`);
+			console.log(`  connectsToEast:  ${receiverEdgeCell.connectsToEast}`);
+			console.log(`  connectsToSouth: ${receiverEdgeCell.connectsToSouth}`);
+			console.log(`  connectsToWest:  ${receiverEdgeCell.connectsToWest}`);
+			console.log("Arrows:");
+			console.log(`  hasArrowNorth: ${receiverEdgeCell.hasArrowNorth}`);
+			console.log(`  hasArrowEast:  ${receiverEdgeCell.hasArrowEast}`);
+			console.log(`  hasArrowSouth: ${receiverEdgeCell.hasArrowSouth}`);
+			console.log(`  hasArrowWest:  ${receiverEdgeCell.hasArrowWest}`);
+			console.log(`\nHuman readable data string: ${receiverEdgeCell.getHumanReadableDataString()}\n`);
+			
 			// Add receiver cell to the edge
 			drawnEdge.addCell(receiverEdgeCell);
 			
@@ -540,5 +612,17 @@ export default class DrawnGrid extends AbstractGrid {
 		}
 
 		console.error(`Failed to place edge after ${MAX_ATTEMPTS} attempts`);
+	}
+
+	private getDirectionFromTo(from: Coordinate, to: Coordinate): CardinalDirection | null {
+		if (from.row === to.row) {
+			if (from.col < to.col) return 'E';
+			if (from.col > to.col) return 'W';
+		}
+		if (from.col === to.col) {
+			if (from.row < to.row) return 'S';
+			if (from.row > to.row) return 'N';
+		}
+		return null;
 	}
 }

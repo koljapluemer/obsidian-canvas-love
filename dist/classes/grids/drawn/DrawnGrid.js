@@ -475,6 +475,55 @@ var DrawnGrid = /** @class */ (function (_super) {
             var senderEdgeCell = new EdgeCell_1.default();
             senderEdgeCell.row = senderAttachmentPoint.row;
             senderEdgeCell.col = senderAttachmentPoint.col;
+            // Set connection and arrow properties for sender
+            var senderDirection = this.getDirectionFromTo(senderAttachmentPoint, senderNode.getCoordinate());
+            if (senderDirection) {
+                // Set connection towards sender
+                switch (senderDirection) {
+                    case 'N':
+                        senderEdgeCell.connectsToSouth = true;
+                        break;
+                    case 'E':
+                        senderEdgeCell.connectsToWest = true;
+                        break;
+                    case 'S':
+                        senderEdgeCell.connectsToNorth = true;
+                        break;
+                    case 'W':
+                        senderEdgeCell.connectsToEast = true;
+                        break;
+                }
+                // Set arrow if needed
+                if (edge.arrowAtSender) {
+                    switch (senderDirection) {
+                        case 'N':
+                            senderEdgeCell.hasArrowSouth = true;
+                            break;
+                        case 'E':
+                            senderEdgeCell.hasArrowWest = true;
+                            break;
+                        case 'S':
+                            senderEdgeCell.hasArrowNorth = true;
+                            break;
+                        case 'W':
+                            senderEdgeCell.hasArrowEast = true;
+                            break;
+                    }
+                }
+            }
+            // Debug log for sender attachment point
+            console.log("\nSender attachment point properties:");
+            console.log("Connections:");
+            console.log("  connectsToNorth: ".concat(senderEdgeCell.connectsToNorth));
+            console.log("  connectsToEast:  ".concat(senderEdgeCell.connectsToEast));
+            console.log("  connectsToSouth: ".concat(senderEdgeCell.connectsToSouth));
+            console.log("  connectsToWest:  ".concat(senderEdgeCell.connectsToWest));
+            console.log("Arrows:");
+            console.log("  hasArrowNorth: ".concat(senderEdgeCell.hasArrowNorth));
+            console.log("  hasArrowEast:  ".concat(senderEdgeCell.hasArrowEast));
+            console.log("  hasArrowSouth: ".concat(senderEdgeCell.hasArrowSouth));
+            console.log("  hasArrowWest:  ".concat(senderEdgeCell.hasArrowWest));
+            console.log("\nHuman readable data string: ".concat(senderEdgeCell.getHumanReadableDataString(), "\n"));
             // Create the drawn edge with sender attachment
             var drawnEdge = new DrawnEdge_1.default(edge, senderNode, receiverNode);
             drawnEdge.addCell(senderEdgeCell);
@@ -494,6 +543,55 @@ var DrawnGrid = /** @class */ (function (_super) {
             var receiverEdgeCell = new EdgeCell_1.default();
             receiverEdgeCell.row = receiverAttachmentPoint.row;
             receiverEdgeCell.col = receiverAttachmentPoint.col;
+            // Set connection and arrow properties for receiver
+            var receiverDirection = this.getDirectionFromTo(receiverAttachmentPoint, receiverNode.getCoordinate());
+            if (receiverDirection) {
+                // Set connection towards receiver
+                switch (receiverDirection) {
+                    case 'N':
+                        receiverEdgeCell.connectsToSouth = true;
+                        break;
+                    case 'E':
+                        receiverEdgeCell.connectsToWest = true;
+                        break;
+                    case 'S':
+                        receiverEdgeCell.connectsToNorth = true;
+                        break;
+                    case 'W':
+                        receiverEdgeCell.connectsToEast = true;
+                        break;
+                }
+                // Set arrow if needed
+                if (edge.arrowAtReceiver) {
+                    switch (receiverDirection) {
+                        case 'N':
+                            receiverEdgeCell.hasArrowSouth = true;
+                            break;
+                        case 'E':
+                            receiverEdgeCell.hasArrowWest = true;
+                            break;
+                        case 'S':
+                            receiverEdgeCell.hasArrowNorth = true;
+                            break;
+                        case 'W':
+                            receiverEdgeCell.hasArrowEast = true;
+                            break;
+                    }
+                }
+            }
+            // Debug log for receiver attachment point
+            console.log("\nReceiver attachment point properties:");
+            console.log("Connections:");
+            console.log("  connectsToNorth: ".concat(receiverEdgeCell.connectsToNorth));
+            console.log("  connectsToEast:  ".concat(receiverEdgeCell.connectsToEast));
+            console.log("  connectsToSouth: ".concat(receiverEdgeCell.connectsToSouth));
+            console.log("  connectsToWest:  ".concat(receiverEdgeCell.connectsToWest));
+            console.log("Arrows:");
+            console.log("  hasArrowNorth: ".concat(receiverEdgeCell.hasArrowNorth));
+            console.log("  hasArrowEast:  ".concat(receiverEdgeCell.hasArrowEast));
+            console.log("  hasArrowSouth: ".concat(receiverEdgeCell.hasArrowSouth));
+            console.log("  hasArrowWest:  ".concat(receiverEdgeCell.hasArrowWest));
+            console.log("\nHuman readable data string: ".concat(receiverEdgeCell.getHumanReadableDataString(), "\n"));
             // Add receiver cell to the edge
             drawnEdge.addCell(receiverEdgeCell);
             // Update the grid with receiver attachment
@@ -502,6 +600,21 @@ var DrawnGrid = /** @class */ (function (_super) {
             return;
         }
         console.error("Failed to place edge after ".concat(MAX_ATTEMPTS, " attempts"));
+    };
+    DrawnGrid.prototype.getDirectionFromTo = function (from, to) {
+        if (from.row === to.row) {
+            if (from.col < to.col)
+                return 'E';
+            if (from.col > to.col)
+                return 'W';
+        }
+        if (from.col === to.col) {
+            if (from.row < to.row)
+                return 'S';
+            if (from.row > to.row)
+                return 'N';
+        }
+        return null;
     };
     return DrawnGrid;
 }(AbstractGrid_1.default));

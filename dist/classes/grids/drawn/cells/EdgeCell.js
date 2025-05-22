@@ -19,13 +19,61 @@ var Cell_1 = require("./Cell");
 var EdgeCell = /** @class */ (function (_super) {
     __extends(EdgeCell, _super);
     function EdgeCell() {
-        return _super !== null && _super.apply(this, arguments) || this;
+        var _this = _super.call(this) || this;
+        _this.connectsToNorth = false;
+        _this.connectsToEast = false;
+        _this.connectsToSouth = false;
+        _this.connectsToWest = false;
+        _this.hasArrowNorth = false;
+        _this.hasArrowEast = false;
+        _this.hasArrowSouth = false;
+        _this.hasArrowWest = false;
+        return _this;
     }
     EdgeCell.prototype.getCellType = function () {
         return "edgeCell";
     };
+    EdgeCell.prototype.getHumanReadableDataString = function () {
+        var dataString = "----_----";
+        var chars = dataString.split('');
+        if (this.connectsToNorth) {
+            chars[0] = "N";
+        }
+        if (this.connectsToEast) {
+            chars[1] = "E";
+        }
+        if (this.connectsToSouth) {
+            chars[2] = "S";
+        }
+        if (this.connectsToWest) {
+            chars[3] = "W";
+        }
+        if (this.hasArrowNorth) {
+            chars[5] = "n";
+        }
+        if (this.hasArrowEast) {
+            chars[6] = "e";
+        }
+        if (this.hasArrowSouth) {
+            chars[7] = "s";
+        }
+        if (this.hasArrowWest) {
+            chars[8] = "w";
+        }
+        return chars.join('');
+    };
     EdgeCell.prototype.renderAsASCII = function () {
-        return "x";
+        var pattern = this.getHumanReadableDataString();
+        switch (pattern) {
+            case "-E-W_----": return "—";
+            case "-E-W_-e--": return "→";
+            case "-E-W_---w": return "←";
+            case "N-S-_----": return "|";
+            case "N-S-_n---": return "↑";
+            case "N-S-_--s-": return "↓";
+            case "NESW_----": return "🞡";
+            default: return "~";
+        }
     };
     return EdgeCell;
 }(Cell_1.default));

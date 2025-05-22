@@ -7,15 +7,27 @@ export default class EdgeCell extends Cell {
 
 	edge: DrawnEdge
 
-	connectsToNorth : boolean
-	connectsToEast : boolean
-	connectsToSouth : boolean
-	connectsToWest : boolean
+	connectsToNorth: boolean
+	connectsToEast: boolean
+	connectsToSouth: boolean
+	connectsToWest: boolean
 
-	hasArrowNorth : boolean
-	hasArrowEast : boolean
-	hasArrowSouth : boolean
-	hasArrowWest : boolean
+	hasArrowNorth: boolean
+	hasArrowEast: boolean
+	hasArrowSouth: boolean
+	hasArrowWest: boolean
+
+	constructor() {
+		super();
+		this.connectsToNorth = false;
+		this.connectsToEast = false;
+		this.connectsToSouth = false;
+		this.connectsToWest = false;
+		this.hasArrowNorth = false;
+		this.hasArrowEast = false;
+		this.hasArrowSouth = false;
+		this.hasArrowWest = false;
+	}
 
 	public getCellType(): CellType {
 		return "edgeCell"
