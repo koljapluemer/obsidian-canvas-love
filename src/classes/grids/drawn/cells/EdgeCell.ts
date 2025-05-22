@@ -41,6 +41,14 @@ export default class EdgeCell extends Cell {
 		return this.renderAsASCII() === "|"
 	}
 
+	public isVerticallyTraversable(): boolean {
+		return this.renderAsASCII() === "—"
+	}
+
+	public isHorizontallyTraversable(): boolean {
+		return this.renderAsASCII() === "|"
+	}
+
 
 	public getHumanReadableDataString(): string {
 		const dataString = "----_----"

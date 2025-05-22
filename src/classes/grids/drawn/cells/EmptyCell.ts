@@ -16,4 +16,12 @@ export default class EmptyCell extends Cell {
 	public clone(): Cell {
 		return new EmptyCell();
 	}
+
+	public isVerticallyTraversable(): boolean {
+		return true;
+	}
+
+	public isHorizontallyTraversable(): boolean {
+		return true;
+	}
 }

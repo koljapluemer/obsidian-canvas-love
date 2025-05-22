@@ -45,10 +45,6 @@ export default class DrawnGrid extends AbstractGrid {
 		return this.grid[coord.row][coord.col];
 	}
 
-	public isCellTraversable(coord: Coordinate): boolean {
-		return this.getCellAt(coord).isTraversable();
-	}
-
 	public isCellEmpty(coord: Coordinate): boolean {
 		return this.getCellAt(coord).isEmpty();
 	}

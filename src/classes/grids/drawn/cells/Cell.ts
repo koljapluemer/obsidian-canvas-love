@@ -10,9 +10,10 @@ export default abstract class Cell {
 	public abstract renderAsASCII():string;
 
 
-	public isTraversable(): boolean {
-		return this.getCellType() === "emptyCell";
-	}
+
+	public abstract isVerticallyTraversable(): boolean;
+	public abstract isHorizontallyTraversable(): boolean;
+	
 
 	public isEmpty(): boolean {
 		return this.getCellType() === "emptyCell";

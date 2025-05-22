@@ -20,4 +20,12 @@ export default class NodeCell extends Cell {
 	public clone(): Cell {
 		return new NodeCell(this.node);
 	}
+
+	public isVerticallyTraversable(): boolean {
+		return false;
+	}
+
+	public isHorizontallyTraversable(): boolean {
+		return false;
+	}
 }
