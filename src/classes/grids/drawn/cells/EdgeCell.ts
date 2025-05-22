@@ -1,4 +1,4 @@
-import DrawnEdge from "../grids/drawn/DrawnEdge";
+import DrawnEdge from "../DrawnEdge";
 import Cell, { CellType } from "./Cell";
 
 export default class EdgeCell extends Cell {

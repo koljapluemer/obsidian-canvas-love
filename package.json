@@ -8,7 +8,8 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test:abstract": "tsc src/experiments/makeAndSaveAbstractGridFromCanvas.ts --outDir dist && node dist/experiments/makeAndSaveAbstractGridFromCanvas.js",
-		"test:configured": "tsc src/experiments/makeAndSaveConfiguredGridFromCanvas.ts --outDir dist && node dist/experiments/makeAndSaveConfiguredGridFromCanvas.js"
+		"test:configured": "tsc src/experiments/makeAndSaveConfiguredGridFromCanvas.ts --outDir dist && node dist/experiments/makeAndSaveConfiguredGridFromCanvas.js",
+		"test:drawn": "tsc src/experiments/makeAndSaveDrawnGridFromCanvas.ts --outDir dist && node dist/experiments/makeAndSaveDrawnGridFromCanvas.js"
 	},
 	"keywords": [],
 	"author": "",
