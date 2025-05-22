@@ -32,6 +32,12 @@ var NodeCell = /** @class */ (function (_super) {
     NodeCell.prototype.clone = function () {
         return new NodeCell(this.node);
     };
+    NodeCell.prototype.isVerticallyTraversable = function () {
+        return false;
+    };
+    NodeCell.prototype.isHorizontallyTraversable = function () {
+        return false;
+    };
     return NodeCell;
 }(Cell_1.default));
 exports.default = NodeCell;

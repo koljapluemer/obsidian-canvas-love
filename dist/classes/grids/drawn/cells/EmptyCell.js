@@ -30,6 +30,12 @@ var EmptyCell = /** @class */ (function (_super) {
     EmptyCell.prototype.clone = function () {
         return new EmptyCell();
     };
+    EmptyCell.prototype.isVerticallyTraversable = function () {
+        return true;
+    };
+    EmptyCell.prototype.isHorizontallyTraversable = function () {
+        return true;
+    };
     return EmptyCell;
 }(Cell_1.default));
 exports.default = EmptyCell;

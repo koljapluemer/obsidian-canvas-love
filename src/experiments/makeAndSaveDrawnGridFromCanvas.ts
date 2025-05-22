@@ -4,7 +4,7 @@ import AbstractGrid from '../classes/grids/abstract/AbstractGrid';
 import ConfiguredGrid from '../classes/grids/configured/ConfiguredGrid';
 import DrawnGrid from '../classes/grids/drawn/DrawnGrid';
 
-const FOLDER_NAME = 'simple';
+const FOLDER_NAME = 'hard';
 // Configuration
 const INPUT_FILE = `src/experiments/data/${FOLDER_NAME}/openjson.canvas`;
 const OUTPUT_FILE = `src/experiments/data/${FOLDER_NAME}/drawnGrid.json`;

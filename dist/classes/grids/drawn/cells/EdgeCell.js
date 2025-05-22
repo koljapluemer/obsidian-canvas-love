@@ -39,6 +39,12 @@ var EdgeCell = /** @class */ (function (_super) {
     EdgeCell.prototype.rowsThatContainMeAreAllowedToBeCloned = function () {
         return this.renderAsASCII() === "|";
     };
+    EdgeCell.prototype.isVerticallyTraversable = function () {
+        return this.renderAsASCII() === "—";
+    };
+    EdgeCell.prototype.isHorizontallyTraversable = function () {
+        return this.renderAsASCII() === "|";
+    };
     EdgeCell.prototype.getHumanReadableDataString = function () {
         var dataString = "----_----";
         var chars = dataString.split('');

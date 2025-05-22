@@ -485,6 +485,121 @@ export default class DrawnGrid extends AbstractGrid {
 		}
 	}
 
+	private findManhattanPath(start: Coordinate, end: Coordinate): Coordinate[] | null {
+		// Helper to check if a coordinate is an attachment point
+		const isAttachmentPoint = (coord: Coordinate) =>
+			(coord.row === start.row && coord.col === start.col) ||
+			(coord.row === end.row && coord.col === end.col);
+
+		// Helper to check if a move is allowed
+		const canMove = (from: Coordinate, to: Coordinate, dir: { row: number, col: number }) => {
+			const fromCell = this.grid[from.row][from.col];
+			const toCell = this.grid[to.row][to.col];
+			if (dir.row !== 0) { // Vertical move
+				if (!isAttachmentPoint(from) && !fromCell.isVerticallyTraversable()) return false;
+				if (!isAttachmentPoint(to) && !toCell.isVerticallyTraversable()) return false;
+			} else { // Horizontal move
+				if (!isAttachmentPoint(from) && !fromCell.isHorizontallyTraversable()) return false;
+				if (!isAttachmentPoint(to) && !toCell.isHorizontallyTraversable()) return false;
+			}
+			return true;
+		};
+
+		// Simple BFS implementation
+		const queue: { coord: Coordinate, path: Coordinate[] }[] = [{ coord: start, path: [start] }];
+		const visited = new Set<string>();
+		visited.add(`${start.row},${start.col}`);
+
+		while (queue.length > 0) {
+			const { coord, path } = queue.shift()!;
+			
+			if (coord.row === end.row && coord.col === end.col) {
+				return path;
+			}
+
+			// Try all four directions
+			const directions: { row: number, col: number }[] = [
+				{ row: -1, col: 0 },  // North
+				{ row: 1, col: 0 },   // South
+				{ row: 0, col: -1 },  // West
+				{ row: 0, col: 1 }    // East
+			];
+
+			for (const dir of directions) {
+				const nextCoord = { row: coord.row + dir.row, col: coord.col + dir.col };
+				const key = `${nextCoord.row},${nextCoord.col}`;
+
+				if (visited.has(key)) continue;
+				if (!this.isCoordinateInGrid(nextCoord.row, nextCoord.col)) continue;
+
+				if (!canMove(coord, nextCoord, dir)) continue;
+
+				visited.add(key);
+				queue.push({ coord: nextCoord, path: [...path, nextCoord] });
+			}
+		}
+
+		return null;
+	}
+
+	private addPathCell(edge: DrawnEdge, coord: Coordinate, prevCoord: Coordinate | null, nextCoord: Coordinate | null): EdgeCell {
+		const cell = new EdgeCell();
+		cell.row = coord.row;
+		cell.col = coord.col;
+		cell.edge = edge;
+
+		// Connect to previous cell
+		if (prevCoord) {
+			const direction = this.getDirectionFromTo(prevCoord, coord);
+			if (direction) {
+				switch (direction) {
+					case 'N': cell.connectsToNorth = true; break;
+					case 'E': cell.connectsToEast = true; break;
+					case 'S': cell.connectsToSouth = true; break;
+					case 'W': cell.connectsToWest = true; break;
+				}
+			}
+		}
+
+		// Connect to next cell
+		if (nextCoord) {
+			const direction = this.getDirectionFromTo(coord, nextCoord);
+			if (direction) {
+				switch (direction) {
+					case 'N': cell.connectsToNorth = true; break;
+					case 'E': cell.connectsToEast = true; break;
+					case 'S': cell.connectsToSouth = true; break;
+					case 'W': cell.connectsToWest = true; break;
+				}
+			}
+		}
+
+		// Add to edge and grid
+		edge.addCell(cell);
+		this.grid[coord.row][coord.col] = cell;
+
+		return cell;
+	}
+
+	private clearPathCells(edge: DrawnEdge, keepAttachmentPoints = true): void {
+		// Get all cells except attachment points if needed
+		const cellsToClear = keepAttachmentPoints 
+			? edge.getCells().slice(2) // Skip first two cells (attachment points)
+			: edge.getCells();
+
+		// Clear each cell from the grid and edge
+		for (const cell of cellsToClear) {
+			this.grid[cell.row][cell.col] = new EmptyCell();
+		}
+
+		// Reset edge's cells array to just attachment points if needed
+		if (keepAttachmentPoints) {
+			edge.getCells().splice(2); // Remove all cells after the first two
+		} else {
+			edge.getCells().splice(0); // Remove all cells
+		}
+	}
+
 	private placeEdge(edge: ConfiguredEdge): void {
 		console.log(`Attempting to place edge from ${edge.ogData.fromNode} to ${edge.ogData.toNode}`);
 		
@@ -502,136 +617,196 @@ export default class DrawnGrid extends AbstractGrid {
 		}
 
 		let attempts = 0;
-		const MAX_ATTEMPTS = 150;
+		const MAX_ATTEMPTS = 200; // Increased for more thorough attempts
+		
+		// Create an empty edge that we'll populate immediately but clear on retry
+		const currentEdge = new DrawnEdge(edge, senderNode, receiverNode);
+		let senderAttachmentPoint: Coordinate | null = null;
+		let receiverAttachmentPoint: Coordinate | null = null;
+		let senderEdgeCell: EdgeCell | null = null;
+		let receiverEdgeCell: EdgeCell | null = null;
 
 		while (attempts < MAX_ATTEMPTS) {
-			// Try to find a valid attachment point for sender
-			const senderAttachmentPoint = this.findValidAttachmentPoint(
-				senderNode,
-				edge.cardinalPreferenceForSenderAttachment
-			);
-
+			// Step 1: Try to find sender attachment point
 			if (!senderAttachmentPoint) {
-				console.log("No valid sender attachment point found, extending grid...");
-				this.extendRandomly();
-				attempts++;
-				continue;
-			}
+				senderAttachmentPoint = this.findValidAttachmentPoint(
+					senderNode,
+					edge.cardinalPreferenceForSenderAttachment
+				);
 
-			console.log(`Found valid sender attachment point at (${senderAttachmentPoint.row}, ${senderAttachmentPoint.col})`);
-			
-			// Create the sender edge cell
-			const senderEdgeCell = new EdgeCell();
-			senderEdgeCell.row = senderAttachmentPoint.row;
-			senderEdgeCell.col = senderAttachmentPoint.col;
-			
-			// Set connection and arrow properties for sender
-			const senderDirection = this.getDirectionFromTo(senderAttachmentPoint, senderNode.getCoordinate());
-			if (senderDirection) {
-				// Set connection towards sender
-				switch (senderDirection) {
-					case 'N': senderEdgeCell.connectsToSouth = true; break;
-					case 'E': senderEdgeCell.connectsToWest = true; break;
-					case 'S': senderEdgeCell.connectsToNorth = true; break;
-					case 'W': senderEdgeCell.connectsToEast = true; break;
+				if (!senderAttachmentPoint) {
+					console.log("No valid sender attachment point found, extending grid...");
+					this.extendRandomly();
+					attempts++;
+					continue;
 				}
+
+				console.log(`Found valid sender attachment point at (${senderAttachmentPoint.row}, ${senderAttachmentPoint.col})`);
 				
-				// Set arrow if needed
-				if (edge.arrowAtSender) {
+				// Create the sender edge cell
+				senderEdgeCell = new EdgeCell();
+				senderEdgeCell.row = senderAttachmentPoint.row;
+				senderEdgeCell.col = senderAttachmentPoint.col;
+				
+				// Set connection and arrow properties for sender
+				const senderDirection = this.getDirectionFromTo(senderAttachmentPoint, senderNode.getCoordinate());
+				if (senderDirection) {
+					// Set connection towards sender
 					switch (senderDirection) {
-						case 'N': senderEdgeCell.hasArrowSouth = true; break;
-						case 'E': senderEdgeCell.hasArrowWest = true; break;
-						case 'S': senderEdgeCell.hasArrowNorth = true; break;
-						case 'W': senderEdgeCell.hasArrowEast = true; break;
+						case 'N': senderEdgeCell.connectsToSouth = true; break;
+						case 'E': senderEdgeCell.connectsToWest = true; break;
+						case 'S': senderEdgeCell.connectsToNorth = true; break;
+						case 'W': senderEdgeCell.connectsToEast = true; break;
+					}
+					
+					// Set arrow if needed
+					if (edge.arrowAtSender) {
+						switch (senderDirection) {
+							case 'N': senderEdgeCell.hasArrowSouth = true; break;
+							case 'E': senderEdgeCell.hasArrowWest = true; break;
+							case 'S': senderEdgeCell.hasArrowNorth = true; break;
+							case 'W': senderEdgeCell.hasArrowEast = true; break;
+						}
 					}
 				}
+				
+				// Debug log for sender attachment point
+				console.log("\nSender attachment point properties:");
+				console.log("Connections:");
+				console.log(`  connectsToNorth: ${senderEdgeCell.connectsToNorth}`);
+				console.log(`  connectsToEast:  ${senderEdgeCell.connectsToEast}`);
+				console.log(`  connectsToSouth: ${senderEdgeCell.connectsToSouth}`);
+				console.log(`  connectsToWest:  ${senderEdgeCell.connectsToWest}`);
+				console.log("Arrows:");
+				console.log(`  hasArrowNorth: ${senderEdgeCell.hasArrowNorth}`);
+				console.log(`  hasArrowEast:  ${senderEdgeCell.hasArrowEast}`);
+				console.log(`  hasArrowSouth: ${senderEdgeCell.hasArrowSouth}`);
+				console.log(`  hasArrowWest:  ${senderEdgeCell.hasArrowWest}`);
+				console.log(`\nHuman readable data string: ${senderEdgeCell.getHumanReadableDataString()}\n`);
+				
+				// Add sender cell to edge and update grid
+				currentEdge.addCell(senderEdgeCell);
+				this.grid[senderAttachmentPoint.row][senderAttachmentPoint.col] = senderEdgeCell;
+				
+				// Debug render after sender placement
+				console.log("Grid after sender attachment:");
+				console.log(this.renderAsASCII());
+				console.log("\n");
 			}
-			
-			// Debug log for sender attachment point
-			console.log("\nSender attachment point properties:");
-			console.log("Connections:");
-			console.log(`  connectsToNorth: ${senderEdgeCell.connectsToNorth}`);
-			console.log(`  connectsToEast:  ${senderEdgeCell.connectsToEast}`);
-			console.log(`  connectsToSouth: ${senderEdgeCell.connectsToSouth}`);
-			console.log(`  connectsToWest:  ${senderEdgeCell.connectsToWest}`);
-			console.log("Arrows:");
-			console.log(`  hasArrowNorth: ${senderEdgeCell.hasArrowNorth}`);
-			console.log(`  hasArrowEast:  ${senderEdgeCell.hasArrowEast}`);
-			console.log(`  hasArrowSouth: ${senderEdgeCell.hasArrowSouth}`);
-			console.log(`  hasArrowWest:  ${senderEdgeCell.hasArrowWest}`);
-			console.log(`\nHuman readable data string: ${senderEdgeCell.getHumanReadableDataString()}\n`);
-			
-			// Create the drawn edge with sender attachment
-			const drawnEdge = new DrawnEdge(edge, senderNode, receiverNode);
-			drawnEdge.addCell(senderEdgeCell);
-			this.edges.push(drawnEdge);
-			
-			// Update the grid with sender attachment
-			this.grid[senderAttachmentPoint.row][senderAttachmentPoint.col] = senderEdgeCell;
-			
-			// Now try to find a valid attachment point for receiver
-			const receiverAttachmentPoint = this.findValidAttachmentPoint(
-				receiverNode,
-				edge.cardinalPreferenceForReceiverAttachment
-			);
 
+			// Step 2: Try to find receiver attachment point
 			if (!receiverAttachmentPoint) {
-				console.log("No valid receiver attachment point found, extending grid...");
+				receiverAttachmentPoint = this.findValidAttachmentPoint(
+					receiverNode,
+					edge.cardinalPreferenceForReceiverAttachment
+				);
+
+				if (!receiverAttachmentPoint) {
+					console.log("No valid receiver attachment point found, clearing sender and extending grid...");
+					// Clear sender attachment
+					if (senderAttachmentPoint && senderEdgeCell) {
+						this.grid[senderAttachmentPoint.row][senderAttachmentPoint.col] = new EmptyCell();
+						senderAttachmentPoint = null;
+						senderEdgeCell = null;
+					}
+					// Clear the edge completely
+					currentEdge.getCells().splice(0);
+					this.extendRandomly();
+					attempts++;
+					continue;
+				}
+
+				console.log(`Found valid receiver attachment point at (${receiverAttachmentPoint.row}, ${receiverAttachmentPoint.col})`);
+				
+				// Create the receiver edge cell
+				receiverEdgeCell = new EdgeCell();
+				receiverEdgeCell.row = receiverAttachmentPoint.row;
+				receiverEdgeCell.col = receiverAttachmentPoint.col;
+				
+				// Set connection and arrow properties for receiver
+				const receiverDirection = this.getDirectionFromTo(receiverAttachmentPoint, receiverNode.getCoordinate());
+				if (receiverDirection) {
+					// Set connection towards receiver
+					switch (receiverDirection) {
+						case 'N': receiverEdgeCell.connectsToSouth = true; break;
+						case 'E': receiverEdgeCell.connectsToWest = true; break;
+						case 'S': receiverEdgeCell.connectsToNorth = true; break;
+						case 'W': receiverEdgeCell.connectsToEast = true; break;
+					}
+					
+					// Set arrow if needed
+					if (edge.arrowAtReceiver) {
+						switch (receiverDirection) {
+							case 'N': receiverEdgeCell.hasArrowSouth = true; break;
+							case 'E': receiverEdgeCell.hasArrowWest = true; break;
+							case 'S': receiverEdgeCell.hasArrowNorth = true; break;
+							case 'W': receiverEdgeCell.hasArrowEast = true; break;
+						}
+					}
+				}
+				
+				// Debug log for receiver attachment point
+				console.log("\nReceiver attachment point properties:");
+				console.log("Connections:");
+				console.log(`  connectsToNorth: ${receiverEdgeCell.connectsToNorth}`);
+				console.log(`  connectsToEast:  ${receiverEdgeCell.connectsToEast}`);
+				console.log(`  connectsToSouth: ${receiverEdgeCell.connectsToSouth}`);
+				console.log(`  connectsToWest:  ${receiverEdgeCell.connectsToWest}`);
+				console.log("Arrows:");
+				console.log(`  hasArrowNorth: ${receiverEdgeCell.hasArrowNorth}`);
+				console.log(`  hasArrowEast:  ${receiverEdgeCell.hasArrowEast}`);
+				console.log(`  hasArrowSouth: ${receiverEdgeCell.hasArrowSouth}`);
+				console.log(`  hasArrowWest:  ${receiverEdgeCell.hasArrowWest}`);
+				console.log(`\nHuman readable data string: ${receiverEdgeCell.getHumanReadableDataString()}\n`);
+				
+				// Add receiver cell to edge and update grid
+				currentEdge.addCell(receiverEdgeCell);
+				this.grid[receiverAttachmentPoint.row][receiverAttachmentPoint.col] = receiverEdgeCell;
+				
+				// Debug render after receiver placement
+				console.log("Grid after receiver attachment:");
+				console.log(this.renderAsASCII());
+				console.log("\n");
+			}
+
+			// Step 3: Try to find path between attachment points
+			const path = this.findManhattanPath(senderAttachmentPoint!, receiverAttachmentPoint!);
+			if (!path) {
+				console.log("No valid path found between attachment points, clearing both attachments and extending grid...");
+				// Clear both attachments
+				if (senderAttachmentPoint) {
+					this.grid[senderAttachmentPoint.row][senderAttachmentPoint.col] = new EmptyCell();
+					senderAttachmentPoint = null;
+					senderEdgeCell = null;
+				}
+				if (receiverAttachmentPoint) {
+					this.grid[receiverAttachmentPoint.row][receiverAttachmentPoint.col] = new EmptyCell();
+					receiverAttachmentPoint = null;
+					receiverEdgeCell = null;
+				}
+				// Clear the edge completely
+				currentEdge.getCells().splice(0);
 				this.extendRandomly();
 				attempts++;
 				continue;
 			}
 
-			console.log(`Found valid receiver attachment point at (${receiverAttachmentPoint.row}, ${receiverAttachmentPoint.col})`);
-			
-			// Create the receiver edge cell
-			const receiverEdgeCell = new EdgeCell();
-			receiverEdgeCell.row = receiverAttachmentPoint.row;
-			receiverEdgeCell.col = receiverAttachmentPoint.col;
-			
-			// Set connection and arrow properties for receiver
-			const receiverDirection = this.getDirectionFromTo(receiverAttachmentPoint, receiverNode.getCoordinate());
-			if (receiverDirection) {
-				// Set connection towards receiver
-				switch (receiverDirection) {
-					case 'N': receiverEdgeCell.connectsToSouth = true; break;
-					case 'E': receiverEdgeCell.connectsToWest = true; break;
-					case 'S': receiverEdgeCell.connectsToNorth = true; break;
-					case 'W': receiverEdgeCell.connectsToEast = true; break;
-				}
-				
-				// Set arrow if needed
-				if (edge.arrowAtReceiver) {
-					switch (receiverDirection) {
-						case 'N': receiverEdgeCell.hasArrowSouth = true; break;
-						case 'E': receiverEdgeCell.hasArrowWest = true; break;
-						case 'S': receiverEdgeCell.hasArrowNorth = true; break;
-						case 'W': receiverEdgeCell.hasArrowEast = true; break;
-					}
-				}
+			// Add path cells (excluding attachment points which are already placed)
+			for (let i = 1; i < path.length - 1; i++) {
+				const prevCoord = path[i - 1];
+				const currentCoord = path[i];
+				const nextCoord = path[i + 1];
+				this.addPathCell(currentEdge, currentCoord, prevCoord, nextCoord);
 			}
 			
-			// Debug log for receiver attachment point
-			console.log("\nReceiver attachment point properties:");
-			console.log("Connections:");
-			console.log(`  connectsToNorth: ${receiverEdgeCell.connectsToNorth}`);
-			console.log(`  connectsToEast:  ${receiverEdgeCell.connectsToEast}`);
-			console.log(`  connectsToSouth: ${receiverEdgeCell.connectsToSouth}`);
-			console.log(`  connectsToWest:  ${receiverEdgeCell.connectsToWest}`);
-			console.log("Arrows:");
-			console.log(`  hasArrowNorth: ${receiverEdgeCell.hasArrowNorth}`);
-			console.log(`  hasArrowEast:  ${receiverEdgeCell.hasArrowEast}`);
-			console.log(`  hasArrowSouth: ${receiverEdgeCell.hasArrowSouth}`);
-			console.log(`  hasArrowWest:  ${receiverEdgeCell.hasArrowWest}`);
-			console.log(`\nHuman readable data string: ${receiverEdgeCell.getHumanReadableDataString()}\n`);
+			// Debug render after path placement
+			console.log("Grid after path placement:");
+			console.log(this.renderAsASCII());
+			console.log("\n");
 			
-			// Add receiver cell to the edge
-			drawnEdge.addCell(receiverEdgeCell);
-			
-			// Update the grid with receiver attachment
-			this.grid[receiverAttachmentPoint.row][receiverAttachmentPoint.col] = receiverEdgeCell;
-			
-			console.log(`Edge placed successfully with both attachment points`);
+			// Add the edge to the grid's edges array
+			this.edges.push(currentEdge);
+			console.log(`Edge placed successfully with both attachment points and path`);
 			return;
 		}
 
