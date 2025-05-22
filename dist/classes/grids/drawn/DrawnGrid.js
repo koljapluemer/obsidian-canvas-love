@@ -38,8 +38,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var AbstractGrid_1 = require("../abstract/AbstractGrid");
 var ConfiguredGrid_1 = require("../configured/ConfiguredGrid");
 var DrawnNode_1 = require("./DrawnNode");
+var DrawnEdge_1 = require("./DrawnEdge");
 var EmptyCell_1 = require("./cells/EmptyCell");
 var NodeCell_1 = require("./cells/NodeCell");
+var EdgeCell_1 = require("./cells/EdgeCell");
 // should this class cache the actual Cells as well?
 // or always generate them dynamically?
 // one feels like SSoT violation, the other like wasted compute
@@ -51,6 +53,7 @@ var DrawnGrid = /** @class */ (function (_super) {
         _this.nodes = [];
         _this.edges = [];
         _this.placeNodes(configuredGrid);
+        _this.placeEdges(configuredGrid);
         return _this;
     }
     DrawnGrid.prototype.getRows = function () {
@@ -323,6 +326,139 @@ var DrawnGrid = /** @class */ (function (_super) {
     DrawnGrid.prototype.evaluate = function () {
         // TODO: Implement evaluation
         return 0;
+    };
+    DrawnGrid.prototype.findValidAttachmentPoint = function (node, preferredDirection) {
+        // Get all cells that belong to this node
+        var nodeCells = node.getCells();
+        // Try each direction in order: preferred, then clockwise
+        var directions = ['N', 'E', 'S', 'W'];
+        var startIndex = directions.indexOf(preferredDirection);
+        // Rotate array to start with preferred direction
+        var orderedDirections = __spreadArray(__spreadArray([], directions.slice(startIndex), true), directions.slice(0, startIndex), true);
+        for (var _i = 0, orderedDirections_1 = orderedDirections; _i < orderedDirections_1.length; _i++) {
+            var direction = orderedDirections_1[_i];
+            // For each cell of the node, check if there's a valid attachment point in this direction
+            for (var _a = 0, nodeCells_1 = nodeCells; _a < nodeCells_1.length; _a++) {
+                var cell = nodeCells_1[_a];
+                var attachmentPoint = this.getAdjacentCoordinate(cell, direction);
+                if (attachmentPoint && this.isCellEmpty(attachmentPoint)) {
+                    return attachmentPoint;
+                }
+            }
+        }
+        return null;
+    };
+    DrawnGrid.prototype.getAdjacentCoordinate = function (cell, direction) {
+        var coord = { row: cell.row, col: cell.col };
+        switch (direction) {
+            case 'N':
+                if (coord.row > 0)
+                    return { row: coord.row - 1, col: coord.col };
+                break;
+            case 'E':
+                if (coord.col < this.getCols() - 1)
+                    return { row: coord.row, col: coord.col + 1 };
+                break;
+            case 'S':
+                if (coord.row < this.getRows() - 1)
+                    return { row: coord.row + 1, col: coord.col };
+                break;
+            case 'W':
+                if (coord.col > 0)
+                    return { row: coord.row, col: coord.col - 1 };
+                break;
+        }
+        return null;
+    };
+    DrawnGrid.prototype.extendRandomly = function () {
+        var action = Math.floor(Math.random() * 4);
+        var rowIndex = null;
+        var colIndex = null;
+        switch (action) {
+            case 0:
+                rowIndex = this.getRandomCloneableRowIndex();
+                if (rowIndex !== null) {
+                    console.log("Cloning row at index ".concat(rowIndex));
+                    this.cloneRowAt(rowIndex);
+                }
+                else {
+                    console.log("No cloneable row found");
+                }
+                break;
+            case 1:
+                colIndex = this.getRandomCloneableColIndex();
+                if (colIndex !== null) {
+                    console.log("Cloning column at index ".concat(colIndex));
+                    this.cloneColAt(colIndex);
+                }
+                else {
+                    console.log("No cloneable column found");
+                }
+                break;
+            case 2:
+                console.log("Adding empty row to start of grid");
+                this.addEmptyRowToStartofGrid();
+                break;
+            case 3:
+                console.log("Adding empty column to start of grid");
+                this.addEmptyColumnToStartofGrid();
+                break;
+        }
+        // Render the grid after cloning for debugging
+        console.log("Grid after extending:");
+        console.log(this.renderAsASCII());
+        console.log("\n");
+    };
+    DrawnGrid.prototype.placeEdges = function (configuredGrid) {
+        // Sort edges by placement priority (same as nodes)
+        var sortedEdges = __spreadArray([], configuredGrid.edges, true).sort(function (a, b) {
+            return a.placementPriority - b.placementPriority;
+        });
+        for (var _i = 0, sortedEdges_1 = sortedEdges; _i < sortedEdges_1.length; _i++) {
+            var edge = sortedEdges_1[_i];
+            this.placeEdge(edge);
+        }
+    };
+    DrawnGrid.prototype.placeEdge = function (edge) {
+        console.log("Attempting to place edge from ".concat(edge.ogData.fromNode, " to ").concat(edge.ogData.toNode));
+        // Find the sender node
+        var senderNode = this.nodes.find(function (n) { return n.ogData.id === edge.ogData.fromNode; });
+        if (!senderNode) {
+            console.error("Could not find sender node ".concat(edge.ogData.fromNode));
+            return;
+        }
+        // Find the receiver node
+        var receiverNode = this.nodes.find(function (n) { return n.ogData.id === edge.ogData.toNode; });
+        if (!receiverNode) {
+            console.error("Could not find receiver node ".concat(edge.ogData.toNode));
+            return;
+        }
+        var attempts = 0;
+        var MAX_ATTEMPTS = 10;
+        while (attempts < MAX_ATTEMPTS) {
+            // Try to find a valid attachment point
+            var attachmentPoint = this.findValidAttachmentPoint(senderNode, edge.cardinalPreferenceForSenderAttachment);
+            if (attachmentPoint) {
+                console.log("Found valid attachment point at (".concat(attachmentPoint.row, ", ").concat(attachmentPoint.col, ")"));
+                // Create the edge cell
+                var edgeCell = new EdgeCell_1.default();
+                edgeCell.row = attachmentPoint.row;
+                edgeCell.col = attachmentPoint.col;
+                // Create and store the drawn edge
+                var drawnEdge = new DrawnEdge_1.default(edge, senderNode, receiverNode);
+                drawnEdge.addCell(edgeCell);
+                this.edges.push(drawnEdge);
+                // Update the grid
+                this.grid[attachmentPoint.row][attachmentPoint.col] = edgeCell;
+                console.log("Edge placed successfully");
+                return;
+            }
+            // If no valid attachment point found, extend the grid
+            console.log("No valid attachment point found, extending grid...");
+            this.extendRandomly();
+            attempts++;
+        }
+        console.error("Failed to place edge after ".concat(MAX_ATTEMPTS, " attempts"));
     };
     return DrawnGrid;
 }(AbstractGrid_1.default));

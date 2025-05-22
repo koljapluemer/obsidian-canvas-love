@@ -5,9 +5,10 @@ var jsoncanvas_1 = require("@trbn/jsoncanvas");
 var AbstractGrid_1 = require("../classes/grids/abstract/AbstractGrid");
 var ConfiguredGrid_1 = require("../classes/grids/configured/ConfiguredGrid");
 var DrawnGrid_1 = require("../classes/grids/drawn/DrawnGrid");
+var FOLDER_NAME = 'simple';
 // Configuration
-var INPUT_FILE = 'src/experiments/data/simple/openjson.canvas';
-var OUTPUT_FILE = 'src/experiments/data/simple/drawnGrid.json';
+var INPUT_FILE = "src/experiments/data/".concat(FOLDER_NAME, "/openjson.canvas");
+var OUTPUT_FILE = "src/experiments/data/".concat(FOLDER_NAME, "/drawnGrid.json");
 function main() {
     try {
         // Read and parse the canvas file

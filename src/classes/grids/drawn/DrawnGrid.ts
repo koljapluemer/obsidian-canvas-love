@@ -1,12 +1,15 @@
 import AbstractGrid from "../abstract/AbstractGrid";
 import ConfiguredGrid from "../configured/ConfiguredGrid";
 import ConfiguredNode from "../configured/ConfiguredNode";
+import ConfiguredEdge from "../configured/ConfiguredEdge";
 import { Coordinate } from "../../Coordinate";
 import DrawnNode from "./DrawnNode";
 import DrawnEdge from "./DrawnEdge";
 import Cell from "./cells/Cell";
 import EmptyCell from "./cells/EmptyCell";
 import NodeCell from "./cells/NodeCell";
+import EdgeCell from "./cells/EdgeCell";
+import { CardinalDirection } from "../../CardinalDirection";
 
 // should this class cache the actual Cells as well?
 // or always generate them dynamically?
@@ -23,6 +26,7 @@ export default class DrawnGrid extends AbstractGrid {
 		this.nodes = [];
 		this.edges = [];
 		this.placeNodes(configuredGrid);
+		this.placeEdges(configuredGrid);
 	}
 
 	public getRows(): number {
@@ -325,5 +329,160 @@ export default class DrawnGrid extends AbstractGrid {
 	public evaluate(): number {
 		// TODO: Implement evaluation
 		return 0
+	}
+
+	private findValidAttachmentPoint(node: DrawnNode, preferredDirection: CardinalDirection): Coordinate | null {
+		// Get all cells that belong to this node
+		const nodeCells = node.getCells();
+		
+		// Try each direction in order: preferred, then clockwise
+		const directions: CardinalDirection[] = ['N', 'E', 'S', 'W'];
+		const startIndex = directions.indexOf(preferredDirection);
+		
+		// Rotate array to start with preferred direction
+		const orderedDirections = [
+			...directions.slice(startIndex),
+			...directions.slice(0, startIndex)
+		];
+
+		for (const direction of orderedDirections) {
+			// For each cell of the node, check if there's a valid attachment point in this direction
+			for (const cell of nodeCells) {
+				const attachmentPoint = this.getAdjacentCoordinate(cell, direction);
+				if (attachmentPoint && this.isCellEmpty(attachmentPoint)) {
+					return attachmentPoint;
+				}
+			}
+		}
+		
+		return null;
+	}
+
+	private getAdjacentCoordinate(cell: Cell, direction: CardinalDirection): Coordinate | null {
+		const coord = { row: cell.row, col: cell.col };
+		
+		switch (direction) {
+			case 'N':
+				if (coord.row > 0) return { row: coord.row - 1, col: coord.col };
+				break;
+			case 'E':
+				if (coord.col < this.getCols() - 1) return { row: coord.row, col: coord.col + 1 };
+				break;
+			case 'S':
+				if (coord.row < this.getRows() - 1) return { row: coord.row + 1, col: coord.col };
+				break;
+			case 'W':
+				if (coord.col > 0) return { row: coord.row, col: coord.col - 1 };
+				break;
+		}
+		
+		return null;
+	}
+
+	private extendRandomly(): void {
+		const action = Math.floor(Math.random() * 4);
+		let rowIndex: number | null = null;
+		let colIndex: number | null = null;
+
+		switch (action) {
+			case 0:
+				rowIndex = this.getRandomCloneableRowIndex();
+				if (rowIndex !== null) {
+					console.log(`Cloning row at index ${rowIndex}`);
+					this.cloneRowAt(rowIndex);
+				} else {
+					console.log("No cloneable row found");
+				}
+				break;
+			case 1:
+				colIndex = this.getRandomCloneableColIndex();
+				if (colIndex !== null) {
+					console.log(`Cloning column at index ${colIndex}`);
+					this.cloneColAt(colIndex);
+				} else {
+					console.log("No cloneable column found");
+				}
+				break;
+			case 2:
+				console.log("Adding empty row to start of grid");
+				this.addEmptyRowToStartofGrid();
+				break;
+			case 3:
+				console.log("Adding empty column to start of grid");
+				this.addEmptyColumnToStartofGrid();
+				break;
+		}
+
+		// Render the grid after cloning for debugging
+		console.log("Grid after extending:");
+		console.log(this.renderAsASCII());
+		console.log("\n");
+	}
+
+	private placeEdges(configuredGrid: ConfiguredGrid): void {
+		// Sort edges by placement priority (same as nodes)
+		const sortedEdges = [...configuredGrid.edges].sort((a, b) => {
+			return a.placementPriority - b.placementPriority;
+		});
+
+		for (const edge of sortedEdges) {
+			this.placeEdge(edge);
+		}
+	}
+
+	private placeEdge(edge: ConfiguredEdge): void {
+		console.log(`Attempting to place edge from ${edge.ogData.fromNode} to ${edge.ogData.toNode}`);
+		
+		// Find the sender node
+		const senderNode = this.nodes.find(n => n.ogData.id === edge.ogData.fromNode);
+		if (!senderNode) {
+			console.error(`Could not find sender node ${edge.ogData.fromNode}`);
+			return;
+		}
+
+		// Find the receiver node
+		const receiverNode = this.nodes.find(n => n.ogData.id === edge.ogData.toNode);
+		if (!receiverNode) {
+			console.error(`Could not find receiver node ${edge.ogData.toNode}`);
+			return;
+		}
+
+		let attempts = 0;
+		const MAX_ATTEMPTS = 10;
+
+		while (attempts < MAX_ATTEMPTS) {
+			// Try to find a valid attachment point
+			const attachmentPoint = this.findValidAttachmentPoint(
+				senderNode,
+				edge.cardinalPreferenceForSenderAttachment
+			);
+
+			if (attachmentPoint) {
+				console.log(`Found valid attachment point at (${attachmentPoint.row}, ${attachmentPoint.col})`);
+				
+				// Create the edge cell
+				const edgeCell = new EdgeCell();
+				edgeCell.row = attachmentPoint.row;
+				edgeCell.col = attachmentPoint.col;
+				
+				// Create and store the drawn edge
+				const drawnEdge = new DrawnEdge(edge, senderNode, receiverNode);
+				drawnEdge.addCell(edgeCell);
+				this.edges.push(drawnEdge);
+				
+				// Update the grid
+				this.grid[attachmentPoint.row][attachmentPoint.col] = edgeCell;
+				
+				console.log(`Edge placed successfully`);
+				return;
+			}
+
+			// If no valid attachment point found, extend the grid
+			console.log("No valid attachment point found, extending grid...");
+			this.extendRandomly();
+			attempts++;
+		}
+
+		console.error(`Failed to place edge after ${MAX_ATTEMPTS} attempts`);
 	}
 }
