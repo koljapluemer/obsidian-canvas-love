@@ -35,7 +35,7 @@ export type DrawnCellJSON =
 export interface DrawnGridJSON {
 	nodes: DrawnNodeJSON[];
 	edges: DrawnEdgeJSON[];
-	cells: DrawnCellJSON[];
+	cells?: DrawnCellJSON[];
 }
 
 export default class DrawnGrid implements Serializable<DrawnGridJSON> {
@@ -360,41 +360,9 @@ export default class DrawnGrid implements Serializable<DrawnGridJSON> {
 	}
 
 	public saveToJSON(): DrawnGridJSON {
-		const nodeIndexMap = new Map(this.nodes.map((n, i) => [n, i]));
-		const edgeIndexMap = new Map(this.edges.map((e, i) => [e, i]));
 		return {
 			nodes: this.nodes.map(node => node.saveToJSON()),
-			edges: this.edges.map(edge => edge.saveToJSON()),
-			cells: this.grid.flat().map(cell => {
-				if (cell instanceof EmptyCell) {
-					return { type: "emptyCell", row: cell.row, col: cell.col };
-				} else if (cell instanceof NodeCell) {
-					// @ts-ignore
-					const nodeIdx = nodeIndexMap.get(cell.node || cell._node || cell.getNode?.());
-					if (typeof nodeIdx !== "number") throw new Error("NodeCell missing valid node index during serialization");
-					return { type: "nodeCell", row: cell.row, col: cell.col, nodeIndex: nodeIdx };
-				} else if (cell instanceof EdgeCell) {
-					// @ts-ignore
-					const edgeIdx = edgeIndexMap.get(cell.edge);
-					if (typeof edgeIdx !== "number") throw new Error("EdgeCell missing valid edge index during serialization");
-					return {
-						type: "edgeCell",
-						row: cell.row,
-						col: cell.col,
-						edgeIndex: edgeIdx,
-						connectsToNorth: cell.connectsToNorth,
-						connectsToEast: cell.connectsToEast,
-						connectsToSouth: cell.connectsToSouth,
-						connectsToWest: cell.connectsToWest,
-						hasArrowNorth: cell.hasArrowNorth,
-						hasArrowEast: cell.hasArrowEast,
-						hasArrowSouth: cell.hasArrowSouth,
-						hasArrowWest: cell.hasArrowWest
-					};
-				} else {
-					throw new Error(`Unknown cell type during serialization`);
-				}
-			})
+			edges: this.edges.map(edge => edge.saveToJSON())
 		};
 	}
 
@@ -402,40 +370,44 @@ export default class DrawnGrid implements Serializable<DrawnGridJSON> {
 		const grid = new DrawnGrid(new ConfiguredGrid());
 		grid.nodes = data.nodes.map((nodeData) => DrawnNode.makeFromJSON(nodeData));
 		grid.edges = data.edges.map((edgeData) => DrawnEdge.makeFromJSON(edgeData));
-		if (data.cells && data.cells.length > 0) {
-			const maxRow = Math.max(...data.cells.map((c) => c.row));
-			const maxCol = Math.max(...data.cells.map((c) => c.col));
-			grid.grid = Array.from({ length: maxRow + 1 }, () => Array(maxCol + 1).fill(null));
-			for (const cellData of data.cells) {
-				let cell: EmptyCell | NodeCell | EdgeCell;
-				if (cellData.type === "emptyCell") {
-					cell = new EmptyCell();
-				} else if (cellData.type === "nodeCell") {
-					const node = grid.nodes[cellData.nodeIndex];
-					if (!node) throw new Error(`Node index ${cellData.nodeIndex} not found for nodeCell`);
-					cell = new NodeCell(node);
-				} else if (cellData.type === "edgeCell") {
-					const edge = grid.edges[cellData.edgeIndex];
-					if (!edge) throw new Error(`Edge index ${cellData.edgeIndex} not found for edgeCell`);
-					const edgeCell = new EdgeCell();
-					edgeCell.edge = edge;
-					edgeCell.connectsToNorth = !!cellData.connectsToNorth;
-					edgeCell.connectsToEast = !!cellData.connectsToEast;
-					edgeCell.connectsToSouth = !!cellData.connectsToSouth;
-					edgeCell.connectsToWest = !!cellData.connectsToWest;
-					edgeCell.hasArrowNorth = !!cellData.hasArrowNorth;
-					edgeCell.hasArrowEast = !!cellData.hasArrowEast;
-					edgeCell.hasArrowSouth = !!cellData.hasArrowSouth;
-					edgeCell.hasArrowWest = !!cellData.hasArrowWest;
-					cell = edgeCell;
-				} else {
-					throw new Error(`Unknown cell type: ${(cellData as any).type}`);
-				}
-				cell.row = cellData.row;
-				cell.col = cellData.col;
-				grid.grid[cell.row][cell.col] = cell;
+
+		// Find the maximum dimensions needed for the grid
+		const maxRow = Math.max(
+			...data.nodes.flatMap(node => node.cells.map(cell => cell.row)),
+			...data.edges.flatMap(edge => edge.cells?.map(cell => cell.row) || [])
+		);
+		const maxCol = Math.max(
+			...data.nodes.flatMap(node => node.cells.map(cell => cell.col)),
+			...data.edges.flatMap(edge => edge.cells?.map(cell => cell.col) || [])
+		);
+
+		// Initialize the grid with empty cells
+		grid.grid = Array.from({ length: maxRow + 1 }, () => 
+			Array.from({ length: maxCol + 1 }, () => new EmptyCell())
+		);
+
+		// Place node cells
+		for (const node of grid.nodes) {
+			for (const cell of node.getCells()) {
+				const nodeCell = new NodeCell(node);
+				nodeCell.row = cell.row;
+				nodeCell.col = cell.col;
+				grid.grid[cell.row][cell.col] = nodeCell;
 			}
 		}
+
+		// Place edge cells
+		for (const edge of grid.edges) {
+			for (const cell of edge.getCells()) {
+				const edgeCell = new EdgeCell();
+				edgeCell.edge = edge;
+				edgeCell.row = cell.row;
+				edgeCell.col = cell.col;
+				edge.addCell(edgeCell);
+				grid.grid[cell.row][cell.col] = edgeCell;
+			}
+		}
+
 		grid.checkGridIntegrity();
 		return grid;
 	}

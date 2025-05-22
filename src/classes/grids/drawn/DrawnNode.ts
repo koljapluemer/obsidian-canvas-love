@@ -136,20 +136,20 @@ export default class DrawnNode extends AbstractNode {
 
 	public saveToJSON(): DrawnNodeJSON {
 		return {
-			...super.saveToJSON(),
+			content: this.content,
+			ogData: this.ogData,
 			coordinate: this.coordinate,
+			cells: this.cells.map(cell => ({ row: cell.row, col: cell.col })),
 			width: this.width,
 			height: this.height,
-			cells: this.cells.map(cell => ({ row: cell.row, col: cell.col })),
-			// Add any other relevant properties here if needed
 		};
 	}
 
 	public static makeFromJSON(data: DrawnNodeJSON): DrawnNode {
 		const node = new DrawnNode(new ConfiguredNode(data));
 		node.coordinate = data.coordinate;
-		node.width = data.width;
-		node.height = data.height;
+		node.width = data.width ?? 1;
+		node.height = data.height ?? 1;
 		// Recreate NodeCell objects from data.cells
 		if (data.cells && Array.isArray(data.cells)) {
 			for (const cellData of data.cells) {

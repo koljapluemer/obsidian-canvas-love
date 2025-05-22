@@ -14,7 +14,15 @@
 		"coordinate": {
 		  "row": 1,
 		  "col": 3
-		}
+		},
+		"cells": [
+		  {
+			"row": 1,
+			"col": 3
+		  }
+		],
+		"width": 1,
+		"height": 1
 	  },
 	  {
 		"content": "Apple",
@@ -31,7 +39,15 @@
 		"coordinate": {
 		  "row": 1,
 		  "col": 0
-		}
+		},
+		"cells": [
+			{
+			  "row": 1,
+			  "col": 0
+			}
+		  ],
+		  "width": 1,
+		  "height": 1
 	  }
 	],
 	"edges": [
