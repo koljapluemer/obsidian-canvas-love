@@ -1,0 +1,102 @@
+{
+	"nodes": [
+	  {
+		"content": "Banana",
+		"ogData": {
+		  "id": "a",
+		  "type": "file",
+		  "file": "Banana",
+		  "x": -540,
+		  "y": -300,
+		  "width": 800,
+		  "height": 100
+		},
+		"coordinate": {
+		  "row": 1,
+		  "col": 3
+		}
+	  },
+	  {
+		"content": "Apple",
+		"ogData": {
+		  "id": "b",
+		  "type": "file",
+		  "file": "Apple",
+		  "x": -420,
+		  "y": 0,
+		  "width": 800,
+		  "height": 160,
+		  "color": "2"
+		},
+		"coordinate": {
+		  "row": 1,
+		  "col": 0
+		}
+	  }
+	],
+	"edges": [
+	  {
+		"ogData": {
+		  "id": "5c3e011ad28f689f",
+		  "fromNode": "a",
+		  "fromSide": "bottom",
+		  "toNode": "b",
+		  "toSide": "top"
+		},
+		"sender": {
+		  "content": "Banana",
+		  "ogData": {
+			"id": "a",
+			"type": "file",
+			"file": "Banana",
+			"x": -540,
+			"y": -300,
+			"width": 800,
+			"height": 100
+		  },
+		  "coordinate": {
+			"row": 1,
+			"col": 3
+		  }
+		},
+		"receiver": {
+		  "content": "Apple",
+		  "ogData": {
+			"id": "b",
+			"type": "file",
+			"file": "Apple",
+			"x": -420,
+			"y": 0,
+			"width": 800,
+			"height": 160,
+			"color": "2"
+		  },
+		  "coordinate": {
+			"row": 1,
+			"col": 0
+		  }
+		},
+		"label": "",
+		"arrowAtSender": false,
+		"arrowAtReceiver": false,
+		"cells": [
+		  {
+			"row": 0,
+			"col": 3
+		  },
+		  {
+			"row": 2,
+			"col": 2
+		  },
+		  {
+			"row": 0,
+			"col": 2
+		  },
+		  {
+			"row": 1,
+			"col": 2
+		  }
+		]
+	  }
+	]
+  }

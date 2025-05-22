@@ -5,6 +5,10 @@ import { Coordinate } from "../../Coordinate";
 
 export interface DrawnNodeJSON extends AbstractNodeJSON {
 	coordinate: Coordinate;
+	width: number;
+	height: number;
+	cells: { row: number; col: number }[];
+	// Add any other relevant properties here if needed
 }
 
 export default class DrawnNode extends AbstractNode {
@@ -130,16 +134,31 @@ export default class DrawnNode extends AbstractNode {
 		return this.nodeToDraw.placementPriority;
 	}
 
-	public override saveToJSON(): DrawnNodeJSON {
+	public saveToJSON(): DrawnNodeJSON {
 		return {
 			...super.saveToJSON(),
-			coordinate: this.coordinate
+			coordinate: this.coordinate,
+			width: this.width,
+			height: this.height,
+			cells: this.cells.map(cell => ({ row: cell.row, col: cell.col })),
+			// Add any other relevant properties here if needed
 		};
 	}
 
 	public static makeFromJSON(data: DrawnNodeJSON): DrawnNode {
 		const node = new DrawnNode(new ConfiguredNode(data));
 		node.coordinate = data.coordinate;
+		node.width = data.width;
+		node.height = data.height;
+		// Recreate NodeCell objects from data.cells
+		if (data.cells && Array.isArray(data.cells)) {
+			for (const cellData of data.cells) {
+				const cell = new NodeCell(node);
+				cell.row = cellData.row;
+				cell.col = cellData.col;
+				node.addCell(cell);
+			}
+		}
 		return node;
 	}
 }

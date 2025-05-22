@@ -131,11 +131,23 @@ var DrawnNode = /** @class */ (function (_super) {
         return this.nodeToDraw.placementPriority;
     };
     DrawnNode.prototype.saveToJSON = function () {
-        return __assign(__assign({}, _super.prototype.saveToJSON.call(this)), { coordinate: this.coordinate });
+        return __assign(__assign({}, _super.prototype.saveToJSON.call(this)), { coordinate: this.coordinate, width: this.width, height: this.height, cells: this.cells.map(function (cell) { return ({ row: cell.row, col: cell.col }); }) });
     };
     DrawnNode.makeFromJSON = function (data) {
         var node = new DrawnNode(new ConfiguredNode_1.default(data));
         node.coordinate = data.coordinate;
+        node.width = data.width;
+        node.height = data.height;
+        // Recreate NodeCell objects from data.cells
+        if (data.cells && Array.isArray(data.cells)) {
+            for (var _i = 0, _a = data.cells; _i < _a.length; _i++) {
+                var cellData = _a[_i];
+                var cell = new NodeCell_1.default(node);
+                cell.row = cellData.row;
+                cell.col = cellData.col;
+                node.addCell(cell);
+            }
+        }
         return node;
     };
     return DrawnNode;

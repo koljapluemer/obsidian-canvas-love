@@ -5,6 +5,7 @@ import DrawnNode from "./DrawnNode";
 
 export interface DrawnEdgeJSON extends AbstractEdgeJSON {
 	cells: { row: number; col: number }[];
+	// Add any other relevant properties here if needed
 }
 
 export default class DrawnEdge extends AbstractEdge {
@@ -45,10 +46,11 @@ export default class DrawnEdge extends AbstractEdge {
 		return this.edgeToDraw.placementPriority;
 	}
 
-	public override saveToJSON(): DrawnEdgeJSON {
+	public saveToJSON(): DrawnEdgeJSON {
 		return {
 			...super.saveToJSON(),
-			cells: this.cells.map(cell => ({ row: cell.row, col: cell.col }))
+			cells: this.cells.map(cell => ({ row: cell.row, col: cell.col })),
+			// Add any other relevant properties here if needed
 		};
 	}
 
@@ -60,7 +62,15 @@ export default class DrawnEdge extends AbstractEdge {
 			baseEdge.sender as DrawnNode,
 			baseEdge.receiver as DrawnNode
 		);
-		// TODO: Recreate cells from data.cells
+		// Recreate EdgeCell objects from data.cells
+		if (data.cells && Array.isArray(data.cells)) {
+			for (const cellData of data.cells) {
+				const cell = new EdgeCell();
+				cell.row = cellData.row;
+				cell.col = cellData.col;
+				edge.addCell(cell);
+			}
+		}
 		return edge;
 	}
 }

@@ -24,6 +24,10 @@ A meta-algo can call all these to hillclimb the optimal parameters for export.
 
 - `npm run test:abstract`: Generates an AbstractGrid from a canvas file and saves it as JSON for inspection
 
+### Automated Testing Note
+
+- For automated tests to work, `tsconfig.json` uses `"module": "CommonJS"` for compatibility with Mocha and ts-node. If you need ES modules, you may need to adjust your test runner configuration or revert this change.
+
 ## Resources
 
 - [Open JSON Canvas Spec](https://github.com/obsidianmd/jsoncanvas/blob/main/spec/1.0.md)

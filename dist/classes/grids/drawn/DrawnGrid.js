@@ -1,19 +1,4 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 var __assign = (this && this.__assign) || function () {
     __assign = Object.assign || function(t) {
         for (var s, i = 1, n = arguments.length; i < n; i++) {
@@ -35,26 +20,19 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var AbstractGrid_1 = require("../abstract/AbstractGrid");
 var ConfiguredGrid_1 = require("../configured/ConfiguredGrid");
 var DrawnNode_1 = require("./DrawnNode");
 var DrawnEdge_1 = require("./DrawnEdge");
 var EmptyCell_1 = require("./cells/EmptyCell");
 var NodeCell_1 = require("./cells/NodeCell");
 var EdgeCell_1 = require("./cells/EdgeCell");
-// should this class cache the actual Cells as well?
-// or always generate them dynamically?
-// one feels like SSoT violation, the other like wasted compute
-var DrawnGrid = /** @class */ (function (_super) {
-    __extends(DrawnGrid, _super);
+var DrawnGrid = /** @class */ (function () {
     function DrawnGrid(configuredGrid) {
-        var _this = _super.call(this) || this;
-        _this.grid = [[new EmptyCell_1.default()]];
-        _this.nodes = [];
-        _this.edges = [];
-        _this.placeNodes(configuredGrid);
-        _this.placeEdges(configuredGrid);
-        return _this;
+        this.grid = [[new EmptyCell_1.default()]];
+        this.nodes = [];
+        this.edges = [];
+        this.placeNodes(configuredGrid);
+        this.placeEdges(configuredGrid);
     }
     DrawnGrid.prototype.getRows = function () {
         return this.grid.length;
@@ -333,15 +311,119 @@ var DrawnGrid = /** @class */ (function (_super) {
         // No need to update node coordinates as they're relative to the start
     };
     DrawnGrid.prototype.saveToJSON = function () {
+        var nodeIndexMap = new Map(this.nodes.map(function (n, i) { return [n, i]; }));
+        var edgeIndexMap = new Map(this.edges.map(function (e, i) { return [e, i]; }));
         return {
             nodes: this.nodes.map(function (node) { return node.saveToJSON(); }),
-            edges: this.edges.map(function (edge) { return edge.saveToJSON(); })
+            edges: this.edges.map(function (edge) { return edge.saveToJSON(); }),
+            cells: this.grid.flat().map(function (cell) {
+                var _a;
+                if (cell instanceof EmptyCell_1.default) {
+                    return { type: "emptyCell", row: cell.row, col: cell.col };
+                }
+                else if (cell instanceof NodeCell_1.default) {
+                    // @ts-ignore
+                    var nodeIdx = nodeIndexMap.get(cell.node || cell._node || ((_a = cell.getNode) === null || _a === void 0 ? void 0 : _a.call(cell)));
+                    if (typeof nodeIdx !== "number")
+                        throw new Error("NodeCell missing valid node index during serialization");
+                    return { type: "nodeCell", row: cell.row, col: cell.col, nodeIndex: nodeIdx };
+                }
+                else if (cell instanceof EdgeCell_1.default) {
+                    // @ts-ignore
+                    var edgeIdx = edgeIndexMap.get(cell.edge);
+                    if (typeof edgeIdx !== "number")
+                        throw new Error("EdgeCell missing valid edge index during serialization");
+                    return {
+                        type: "edgeCell",
+                        row: cell.row,
+                        col: cell.col,
+                        edgeIndex: edgeIdx,
+                        connectsToNorth: cell.connectsToNorth,
+                        connectsToEast: cell.connectsToEast,
+                        connectsToSouth: cell.connectsToSouth,
+                        connectsToWest: cell.connectsToWest,
+                        hasArrowNorth: cell.hasArrowNorth,
+                        hasArrowEast: cell.hasArrowEast,
+                        hasArrowSouth: cell.hasArrowSouth,
+                        hasArrowWest: cell.hasArrowWest
+                    };
+                }
+                else {
+                    throw new Error("Unknown cell type during serialization");
+                }
+            })
         };
     };
     DrawnGrid.makeFromJSON = function (data) {
         var grid = new DrawnGrid(new ConfiguredGrid_1.default());
-        // TODO: Recreate grid from data
+        grid.nodes = data.nodes.map(function (nodeData) { return DrawnNode_1.default.makeFromJSON(nodeData); });
+        grid.edges = data.edges.map(function (edgeData) { return DrawnEdge_1.default.makeFromJSON(edgeData); });
+        if (data.cells && data.cells.length > 0) {
+            var maxRow = Math.max.apply(Math, data.cells.map(function (c) { return c.row; }));
+            var maxCol_1 = Math.max.apply(Math, data.cells.map(function (c) { return c.col; }));
+            grid.grid = Array.from({ length: maxRow + 1 }, function () { return Array(maxCol_1 + 1).fill(null); });
+            for (var _i = 0, _a = data.cells; _i < _a.length; _i++) {
+                var cellData = _a[_i];
+                var cell = void 0;
+                if (cellData.type === "emptyCell") {
+                    cell = new EmptyCell_1.default();
+                }
+                else if (cellData.type === "nodeCell") {
+                    var node = grid.nodes[cellData.nodeIndex];
+                    if (!node)
+                        throw new Error("Node index ".concat(cellData.nodeIndex, " not found for nodeCell"));
+                    cell = new NodeCell_1.default(node);
+                }
+                else if (cellData.type === "edgeCell") {
+                    var edge = grid.edges[cellData.edgeIndex];
+                    if (!edge)
+                        throw new Error("Edge index ".concat(cellData.edgeIndex, " not found for edgeCell"));
+                    var edgeCell = new EdgeCell_1.default();
+                    edgeCell.edge = edge;
+                    edgeCell.connectsToNorth = !!cellData.connectsToNorth;
+                    edgeCell.connectsToEast = !!cellData.connectsToEast;
+                    edgeCell.connectsToSouth = !!cellData.connectsToSouth;
+                    edgeCell.connectsToWest = !!cellData.connectsToWest;
+                    edgeCell.hasArrowNorth = !!cellData.hasArrowNorth;
+                    edgeCell.hasArrowEast = !!cellData.hasArrowEast;
+                    edgeCell.hasArrowSouth = !!cellData.hasArrowSouth;
+                    edgeCell.hasArrowWest = !!cellData.hasArrowWest;
+                    cell = edgeCell;
+                }
+                else {
+                    throw new Error("Unknown cell type: ".concat(cellData.type));
+                }
+                cell.row = cellData.row;
+                cell.col = cellData.col;
+                grid.grid[cell.row][cell.col] = cell;
+            }
+        }
+        grid.checkGridIntegrity();
         return grid;
+    };
+    DrawnGrid.prototype.checkGridIntegrity = function () {
+        // Check that all node and edge cells exist in the grid and match type
+        for (var _i = 0, _a = this.nodes; _i < _a.length; _i++) {
+            var node = _a[_i];
+            for (var _b = 0, _c = node.getCells(); _b < _c.length; _b++) {
+                var cell = _c[_b];
+                var gridCell = this.grid[cell.row][cell.col];
+                if (!gridCell || gridCell.getCellType() !== cell.getCellType()) {
+                    throw new Error("Node cell at (".concat(cell.row, ",").concat(cell.col, ") missing or type mismatch in grid"));
+                }
+            }
+        }
+        for (var _d = 0, _e = this.edges; _d < _e.length; _d++) {
+            var edge = _e[_d];
+            for (var _f = 0, _g = edge.getCells(); _f < _g.length; _f++) {
+                var cell = _g[_f];
+                var gridCell = this.grid[cell.row][cell.col];
+                if (!gridCell || gridCell.getCellType() !== cell.getCellType()) {
+                    throw new Error("Edge cell at (".concat(cell.row, ",").concat(cell.col, ") missing or type mismatch in grid"));
+                }
+            }
+        }
+        // Optionally: check for extra cells in grid not referenced by any node/edge
     };
     DrawnGrid.prototype.evaluate = function () {
         // TODO: Implement evaluation
@@ -819,5 +901,5 @@ var DrawnGrid = /** @class */ (function (_super) {
         return null;
     };
     return DrawnGrid;
-}(AbstractGrid_1.default));
+}());
 exports.default = DrawnGrid;

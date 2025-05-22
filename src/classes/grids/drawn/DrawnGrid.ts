@@ -1,27 +1,49 @@
-import AbstractGrid from "../abstract/AbstractGrid";
 import ConfiguredGrid from "../configured/ConfiguredGrid";
 import ConfiguredNode from "../configured/ConfiguredNode";
 import ConfiguredEdge from "../configured/ConfiguredEdge";
 import { Coordinate } from "../../Coordinate";
-import DrawnNode from "./DrawnNode";
-import DrawnEdge from "./DrawnEdge";
+import DrawnNode, { DrawnNodeJSON } from "./DrawnNode";
+import DrawnEdge, { DrawnEdgeJSON } from "./DrawnEdge";
 import Cell from "./cells/Cell";
 import EmptyCell from "./cells/EmptyCell";
 import NodeCell from "./cells/NodeCell";
 import EdgeCell from "./cells/EdgeCell";
 import { CardinalDirection } from "../../CardinalDirection";
 
-// should this class cache the actual Cells as well?
-// or always generate them dynamically?
-// one feels like SSoT violation, the other like wasted compute
+export interface Serializable<T> {
+	saveToJSON(): T;
+}
 
-export default class DrawnGrid extends AbstractGrid {
-	private grid: Cell[][];
+export type DrawnCellJSON =
+	| { type: "emptyCell"; row: number; col: number }
+	| { type: "nodeCell"; row: number; col: number; nodeIndex: number }
+	| {
+		type: "edgeCell";
+		row: number;
+		col: number;
+		edgeIndex: number;
+		connectsToNorth: boolean;
+		connectsToEast: boolean;
+		connectsToSouth: boolean;
+		connectsToWest: boolean;
+		hasArrowNorth: boolean;
+		hasArrowEast: boolean;
+		hasArrowSouth: boolean;
+		hasArrowWest: boolean;
+	};
+
+export interface DrawnGridJSON {
+	nodes: DrawnNodeJSON[];
+	edges: DrawnEdgeJSON[];
+	cells: DrawnCellJSON[];
+}
+
+export default class DrawnGrid implements Serializable<DrawnGridJSON> {
+	private grid: (EmptyCell | NodeCell | EdgeCell)[][];
 	public nodes: DrawnNode[];
 	public edges: DrawnEdge[];
 
 	constructor(configuredGrid: ConfiguredGrid) {
-		super();
 		this.grid = [[new EmptyCell()]];
 		this.nodes = [];
 		this.edges = [];
@@ -337,17 +359,106 @@ export default class DrawnGrid extends AbstractGrid {
 		// No need to update node coordinates as they're relative to the start
 	}
 
-	public override saveToJSON() {
+	public saveToJSON(): DrawnGridJSON {
+		const nodeIndexMap = new Map(this.nodes.map((n, i) => [n, i]));
+		const edgeIndexMap = new Map(this.edges.map((e, i) => [e, i]));
 		return {
 			nodes: this.nodes.map(node => node.saveToJSON()),
-			edges: this.edges.map(edge => edge.saveToJSON())
+			edges: this.edges.map(edge => edge.saveToJSON()),
+			cells: this.grid.flat().map(cell => {
+				if (cell instanceof EmptyCell) {
+					return { type: "emptyCell", row: cell.row, col: cell.col };
+				} else if (cell instanceof NodeCell) {
+					// @ts-ignore
+					const nodeIdx = nodeIndexMap.get(cell.node || cell._node || cell.getNode?.());
+					if (typeof nodeIdx !== "number") throw new Error("NodeCell missing valid node index during serialization");
+					return { type: "nodeCell", row: cell.row, col: cell.col, nodeIndex: nodeIdx };
+				} else if (cell instanceof EdgeCell) {
+					// @ts-ignore
+					const edgeIdx = edgeIndexMap.get(cell.edge);
+					if (typeof edgeIdx !== "number") throw new Error("EdgeCell missing valid edge index during serialization");
+					return {
+						type: "edgeCell",
+						row: cell.row,
+						col: cell.col,
+						edgeIndex: edgeIdx,
+						connectsToNorth: cell.connectsToNorth,
+						connectsToEast: cell.connectsToEast,
+						connectsToSouth: cell.connectsToSouth,
+						connectsToWest: cell.connectsToWest,
+						hasArrowNorth: cell.hasArrowNorth,
+						hasArrowEast: cell.hasArrowEast,
+						hasArrowSouth: cell.hasArrowSouth,
+						hasArrowWest: cell.hasArrowWest
+					};
+				} else {
+					throw new Error(`Unknown cell type during serialization`);
+				}
+			})
 		};
 	}
 
-	public static override makeFromJSON(data: any) {
+	public static makeFromJSON(data: DrawnGridJSON): DrawnGrid {
 		const grid = new DrawnGrid(new ConfiguredGrid());
-		// TODO: Recreate grid from data
+		grid.nodes = data.nodes.map((nodeData) => DrawnNode.makeFromJSON(nodeData));
+		grid.edges = data.edges.map((edgeData) => DrawnEdge.makeFromJSON(edgeData));
+		if (data.cells && data.cells.length > 0) {
+			const maxRow = Math.max(...data.cells.map((c) => c.row));
+			const maxCol = Math.max(...data.cells.map((c) => c.col));
+			grid.grid = Array.from({ length: maxRow + 1 }, () => Array(maxCol + 1).fill(null));
+			for (const cellData of data.cells) {
+				let cell: EmptyCell | NodeCell | EdgeCell;
+				if (cellData.type === "emptyCell") {
+					cell = new EmptyCell();
+				} else if (cellData.type === "nodeCell") {
+					const node = grid.nodes[cellData.nodeIndex];
+					if (!node) throw new Error(`Node index ${cellData.nodeIndex} not found for nodeCell`);
+					cell = new NodeCell(node);
+				} else if (cellData.type === "edgeCell") {
+					const edge = grid.edges[cellData.edgeIndex];
+					if (!edge) throw new Error(`Edge index ${cellData.edgeIndex} not found for edgeCell`);
+					const edgeCell = new EdgeCell();
+					edgeCell.edge = edge;
+					edgeCell.connectsToNorth = !!cellData.connectsToNorth;
+					edgeCell.connectsToEast = !!cellData.connectsToEast;
+					edgeCell.connectsToSouth = !!cellData.connectsToSouth;
+					edgeCell.connectsToWest = !!cellData.connectsToWest;
+					edgeCell.hasArrowNorth = !!cellData.hasArrowNorth;
+					edgeCell.hasArrowEast = !!cellData.hasArrowEast;
+					edgeCell.hasArrowSouth = !!cellData.hasArrowSouth;
+					edgeCell.hasArrowWest = !!cellData.hasArrowWest;
+					cell = edgeCell;
+				} else {
+					throw new Error(`Unknown cell type: ${(cellData as any).type}`);
+				}
+				cell.row = cellData.row;
+				cell.col = cellData.col;
+				grid.grid[cell.row][cell.col] = cell;
+			}
+		}
+		grid.checkGridIntegrity();
 		return grid;
+	}
+
+	private checkGridIntegrity(): void {
+		// Check that all node and edge cells exist in the grid and match type
+		for (const node of this.nodes) {
+			for (const cell of node.getCells()) {
+				const gridCell = this.grid[cell.row][cell.col];
+				if (!gridCell || gridCell.getCellType() !== cell.getCellType()) {
+					throw new Error(`Node cell at (${cell.row},${cell.col}) missing or type mismatch in grid`);
+				}
+			}
+		}
+		for (const edge of this.edges) {
+			for (const cell of edge.getCells()) {
+				const gridCell = this.grid[cell.row][cell.col];
+				if (!gridCell || gridCell.getCellType() !== cell.getCellType()) {
+					throw new Error(`Edge cell at (${cell.row},${cell.col}) missing or type mismatch in grid`);
+				}
+			}
+		}
+		// Optionally: check for extra cells in grid not referenced by any node/edge
 	}
 
 	public evaluate(): number {
