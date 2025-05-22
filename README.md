@@ -23,3 +23,8 @@ A meta-algo can call all these to hillclimb the optimal parameters for export.
 ### Test Scripts
 
 - `npm run test:abstract`: Generates an AbstractGrid from a canvas file and saves it as JSON for inspection
+
+## Resources
+
+- [Open JSON Canvas Spec](https://github.com/obsidianmd/jsoncanvas/blob/main/spec/1.0.md)
+- [ts JSON Canvas](https://github.com/t128n/jsoncanvas)

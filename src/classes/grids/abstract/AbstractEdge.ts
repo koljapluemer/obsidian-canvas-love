@@ -1,23 +1,33 @@
-import AbstractNode from "./AbstractNode"
+import AbstractNode, { type AbstractNodeJSON } from "./AbstractNode"
+import { type Edge } from '@trbn/jsoncanvas';
+
+export interface AbstractEdgeJSON {
+	ogData: Edge;
+	sender: AbstractNodeJSON;
+	receiver: AbstractNodeJSON;
+	label: string;
+	arrowAtSender: boolean;
+	arrowAtReceiver: boolean;
+}
 
 export default class AbstractEdge {
-	ogData: any
+	ogData: Edge
 	sender: AbstractNode
 	receiver: AbstractNode
 	label: string
 	arrowAtSender: boolean
 	arrowAtReceiver: boolean
 
-	constructor(edgeData: any, sender: AbstractNode, receiver: AbstractNode) {
+	constructor(edgeData: Edge, sender: AbstractNode, receiver: AbstractNode) {
 		this.ogData = edgeData;
 		this.sender = sender;
 		this.receiver = receiver;
 		this.label = edgeData.label || "";
-		this.arrowAtSender = edgeData.fromSide === "arrow";
-		this.arrowAtReceiver = edgeData.toSide === "arrow";
+		this.arrowAtSender = edgeData.fromEnd === "arrow";
+		this.arrowAtReceiver = edgeData.toEnd === "arrow";
 	}
 
-	public saveToJSON(): any {
+	public saveToJSON(): AbstractEdgeJSON {
 		return {
 			ogData: this.ogData,
 			sender: this.sender.saveToJSON(),
@@ -28,7 +38,7 @@ export default class AbstractEdge {
 		};
 	}
 
-	public static makeFromJSON(data: any): AbstractEdge {
+	public static makeFromJSON(data: AbstractEdgeJSON): AbstractEdge {
 		const sender = AbstractNode.makeFromJSON(data.sender);
 		const receiver = AbstractNode.makeFromJSON(data.receiver);
 		const edge = new AbstractEdge(data.ogData, sender, receiver);

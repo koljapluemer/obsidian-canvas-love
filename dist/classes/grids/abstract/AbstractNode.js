@@ -1,8 +1,19 @@
 "use strict";
-exports.__esModule = true;
+Object.defineProperty(exports, "__esModule", { value: true });
 var AbstractNode = /** @class */ (function () {
     function AbstractNode(nodeData) {
-        this.content = nodeData.text || nodeData.file || "";
+        if ('text' in nodeData) {
+            this.content = nodeData.text;
+        }
+        else if ('url' in nodeData) {
+            this.content = nodeData.url;
+        }
+        else if ('file' in nodeData) {
+            this.content = nodeData.file;
+        }
+        else {
+            this.content = "";
+        }
         this.ogData = nodeData;
     }
     AbstractNode.prototype.saveToJSON = function () {
@@ -18,4 +29,4 @@ var AbstractNode = /** @class */ (function () {
     };
     return AbstractNode;
 }());
-exports["default"] = AbstractNode;
+exports.default = AbstractNode;

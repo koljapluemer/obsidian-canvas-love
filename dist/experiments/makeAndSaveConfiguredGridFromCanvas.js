@@ -4,9 +4,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var fs_1 = require("fs");
 var jsoncanvas_1 = require("@trbn/jsoncanvas");
 var AbstractGrid_1 = require("../classes/grids/abstract/AbstractGrid");
+var ConfiguredGrid_1 = require("../classes/grids/configured/ConfiguredGrid");
 // Configuration
 var INPUT_FILE = 'src/experiments/data/simple/openjson.canvas';
-var OUTPUT_FILE = 'src/experiments/data/simple/abstractGrid.json';
+var OUTPUT_FILE = 'src/experiments/data/simple/configuredGrid.json';
 function main() {
     try {
         // Read and parse the canvas file
@@ -16,12 +17,15 @@ function main() {
         console.log('Canvas nodes:', canvas.getNodes());
         console.log('Canvas edges:', canvas.getEdges());
         // Generate the abstract grid
-        var grid = AbstractGrid_1.default.generateFromCanvasData(canvas);
-        // Save the grid to JSON
-        var gridJSON = grid.saveToJSON();
+        var abstractGrid = AbstractGrid_1.default.generateFromCanvasData(canvas);
+        console.log("Generated abstract grid with ".concat(abstractGrid.nodes.length, " nodes and ").concat(abstractGrid.edges.length, " edges"));
+        // Generate the configured grid
+        var configuredGrid = ConfiguredGrid_1.default.generateRandomizedFromAbstractGrid(abstractGrid);
+        console.log("Generated configured grid with ".concat(configuredGrid.nodes.length, " nodes and ").concat(configuredGrid.edges.length, " edges"));
+        // Save the configured grid to JSON
+        var gridJSON = configuredGrid.saveToJSON();
         (0, fs_1.writeFileSync)(OUTPUT_FILE, JSON.stringify(gridJSON, null, 2));
-        console.log("Successfully processed canvas and saved grid to ".concat(OUTPUT_FILE));
-        console.log("Generated ".concat(grid.nodes.length, " nodes and ").concat(grid.edges.length, " edges"));
+        console.log("Successfully saved configured grid to ".concat(OUTPUT_FILE));
     }
     catch (error) {
         console.error('Error processing canvas:', error);
