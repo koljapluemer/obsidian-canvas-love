@@ -348,25 +348,30 @@ export default class DrawnGrid extends AbstractGrid {
 		for (const direction of orderedDirections) {
 			// For each cell of the node, check if there's a valid attachment point in this direction
 			for (const cell of nodeCells) {
+				// First check: attachment point must be within bounds and empty
 				const attachmentPoint = this.getAdjacentCoordinate(cell, direction);
-				if (!attachmentPoint) continue; // Skip if first cell is outside grid
+				if (!attachmentPoint) continue; // Skip if attachment point would be out of bounds
 				
-				// Check if attachment point is empty
-				if (!this.isCellEmpty(attachmentPoint)) continue;
+				// Verify attachment point is within grid bounds
+				if (attachmentPoint.row < 0 || attachmentPoint.row >= this.getRows() ||
+					attachmentPoint.col < 0 || attachmentPoint.col >= this.getCols()) {
+					continue; // Skip if attachment point is out of bounds
+				}
 				
-				// Create a temporary cell at the attachment point to check the next cell
+				if (!this.isCellEmpty(attachmentPoint)) continue; // Skip if attachment point is not empty
+				
+				// Second check: breathing space can be empty OR out of bounds
 				const tempCell = new EmptyCell();
 				tempCell.row = attachmentPoint.row;
 				tempCell.col = attachmentPoint.col;
+				const breathingSpace = this.getAdjacentCoordinate(tempCell, direction);
 				
-				// Check if the next cell in the same direction is either empty or outside the grid
-				const nextPoint = this.getAdjacentCoordinate(tempCell, direction);
-				if (nextPoint) {
-					// If next point exists, it must be empty
-					if (!this.isCellEmpty(nextPoint)) continue;
-				}
-				// If next point doesn't exist (outside grid), that's also valid
+				// If breathing space exists, it must be empty
+				if (breathingSpace && !this.isCellEmpty(breathingSpace)) continue;
 				
+				// If we get here, we have a valid attachment point:
+				// - The attachment point exists, is within bounds, and is empty
+				// - The breathing space is either empty or out of bounds
 				return attachmentPoint;
 			}
 		}
@@ -459,14 +464,13 @@ export default class DrawnGrid extends AbstractGrid {
 	private placeEdge(edge: ConfiguredEdge): void {
 		console.log(`Attempting to place edge from ${edge.ogData.fromNode} to ${edge.ogData.toNode}`);
 		
-		// Find the sender node
+		// Find the sender and receiver nodes
 		const senderNode = this.nodes.find(n => n.ogData.id === edge.ogData.fromNode);
 		if (!senderNode) {
 			console.error(`Could not find sender node ${edge.ogData.fromNode}`);
 			return;
 		}
 
-		// Find the receiver node
 		const receiverNode = this.nodes.find(n => n.ogData.id === edge.ogData.toNode);
 		if (!receiverNode) {
 			console.error(`Could not find receiver node ${edge.ogData.toNode}`);
@@ -474,49 +478,65 @@ export default class DrawnGrid extends AbstractGrid {
 		}
 
 		let attempts = 0;
-		const MAX_ATTEMPTS = 10;
+		const MAX_ATTEMPTS = 150;
 
 		while (attempts < MAX_ATTEMPTS) {
-			// Try to find a valid attachment point
-			const attachmentPoint = this.findValidAttachmentPoint(
+			// Try to find a valid attachment point for sender
+			const senderAttachmentPoint = this.findValidAttachmentPoint(
 				senderNode,
 				edge.cardinalPreferenceForSenderAttachment
 			);
 
-			if (attachmentPoint) {
-				console.log(`Found valid attachment point at (${attachmentPoint.row}, ${attachmentPoint.col})`);
-				console.log(`Grid dimensions: ${this.getRows()} rows x ${this.getCols()} cols`);
-				
-				// Verify grid bounds
-				if (attachmentPoint.row < 0 || attachmentPoint.row >= this.getRows() ||
-					attachmentPoint.col < 0 || attachmentPoint.col >= this.getCols()) {
-					console.error(`Attachment point (${attachmentPoint.row}, ${attachmentPoint.col}) is outside grid bounds`);
-					this.extendRandomly();
-					attempts++;
-					continue;
-				}
-				
-				// Create the edge cell
-				const edgeCell = new EdgeCell();
-				edgeCell.row = attachmentPoint.row;
-				edgeCell.col = attachmentPoint.col;
-				
-				// Create and store the drawn edge
-				const drawnEdge = new DrawnEdge(edge, senderNode, receiverNode);
-				drawnEdge.addCell(edgeCell);
-				this.edges.push(drawnEdge);
-				
-				// Update the grid
-				this.grid[attachmentPoint.row][attachmentPoint.col] = edgeCell;
-				
-				console.log(`Edge placed successfully`);
-				return;
+			if (!senderAttachmentPoint) {
+				console.log("No valid sender attachment point found, extending grid...");
+				this.extendRandomly();
+				attempts++;
+				continue;
 			}
 
-			// If no valid attachment point found, extend the grid
-			console.log("No valid attachment point found, extending grid...");
-			this.extendRandomly();
-			attempts++;
+			console.log(`Found valid sender attachment point at (${senderAttachmentPoint.row}, ${senderAttachmentPoint.col})`);
+			
+			// Create the sender edge cell
+			const senderEdgeCell = new EdgeCell();
+			senderEdgeCell.row = senderAttachmentPoint.row;
+			senderEdgeCell.col = senderAttachmentPoint.col;
+			
+			// Create the drawn edge with sender attachment
+			const drawnEdge = new DrawnEdge(edge, senderNode, receiverNode);
+			drawnEdge.addCell(senderEdgeCell);
+			this.edges.push(drawnEdge);
+			
+			// Update the grid with sender attachment
+			this.grid[senderAttachmentPoint.row][senderAttachmentPoint.col] = senderEdgeCell;
+			
+			// Now try to find a valid attachment point for receiver
+			const receiverAttachmentPoint = this.findValidAttachmentPoint(
+				receiverNode,
+				edge.cardinalPreferenceForReceiverAttachment
+			);
+
+			if (!receiverAttachmentPoint) {
+				console.log("No valid receiver attachment point found, extending grid...");
+				this.extendRandomly();
+				attempts++;
+				continue;
+			}
+
+			console.log(`Found valid receiver attachment point at (${receiverAttachmentPoint.row}, ${receiverAttachmentPoint.col})`);
+			
+			// Create the receiver edge cell
+			const receiverEdgeCell = new EdgeCell();
+			receiverEdgeCell.row = receiverAttachmentPoint.row;
+			receiverEdgeCell.col = receiverAttachmentPoint.col;
+			
+			// Add receiver cell to the edge
+			drawnEdge.addCell(receiverEdgeCell);
+			
+			// Update the grid with receiver attachment
+			this.grid[receiverAttachmentPoint.row][receiverAttachmentPoint.col] = receiverEdgeCell;
+			
+			console.log(`Edge placed successfully with both attachment points`);
+			return;
 		}
 
 		console.error(`Failed to place edge after ${MAX_ATTEMPTS} attempts`);
