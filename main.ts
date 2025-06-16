@@ -1,134 +1,208 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin, TFile, Notice } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+interface CanvasNode {
+    id: string;
+    type: string;
+    file?: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+interface CanvasEdge {
+    id: string;
+    fromNode: string;
+    fromSide: string;
+    toNode: string;
+    toSide: string;
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
-
-	async onload() {
-		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+interface CanvasData {
+    nodes: CanvasNode[];
+    edges: CanvasEdge[];
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+export default class CanvasToHtmlPlugin extends Plugin {
+    async onload() {
+        this.addCommand({
+            id: 'export-canvas-to-html',
+            name: 'Export Canvas to HTML',
+            callback: () => this.exportCanvasToHtml()
+        });
+    }
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    private async exportCanvasToHtml() {
+        const activeLeaf = this.app.workspace.activeLeaf;
+        if (!activeLeaf || !activeLeaf.view || activeLeaf.view.getViewType() !== 'canvas') {
+            const error = 'No canvas file is currently open';
+            console.error('[CanvasToHtml]', error);
+            new Notice(error);
+            return;
+        }
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+        try {
+            const canvasData = await this.getCanvasData();
+            const html = await this.generateHtml(canvasData);
+            await this.saveHtmlFile(html);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error('[CanvasToHtml] Export failed:', error);
+            if (error instanceof Error && error.stack) {
+                console.error('[CanvasToHtml] Stack trace:', error.stack);
+            }
+            new Notice('Failed to export canvas: ' + errorMessage);
+        }
+    }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+    private async getCanvasData(): Promise<CanvasData> {
+        const activeLeaf = this.app.workspace.activeLeaf;
+        if (!activeLeaf?.view) {
+            const error = 'No active view found';
+            console.error('[CanvasToHtml]', error);
+            throw new Error(error);
+        }
+        
+        // @ts-ignore - canvas view type is not in the types
+        const canvasView = activeLeaf.view;
+        // @ts-ignore - canvas property is not in the types
+        const canvas = canvasView.canvas;
+        
+        if (!canvas) {
+            const error = 'Canvas data is not available';
+            console.error('[CanvasToHtml]', error);
+            throw new Error(error);
+        }
+        
+        return canvas;
+    }
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+    private async generateHtml(canvasData: CanvasData): Promise<string> {
+        const { nodes } = canvasData;
+        
+        if (!nodes || nodes.length === 0) {
+            const error = 'No nodes found in canvas';
+            console.error('[CanvasToHtml]', error);
+            throw new Error(error);
+        }
+        
+        // Get all unique x and y coordinates, including node boundaries
+        const xCoords = new Set<number>();
+        const yCoords = new Set<number>();
+        
+        nodes.forEach(node => {
+            xCoords.add(node.x);
+            xCoords.add(node.x + node.width);
+            yCoords.add(node.y);
+            yCoords.add(node.y + node.height);
+        });
 
-	display(): void {
-		const {containerEl} = this;
+        // Sort coordinates
+        const sortedXCoords = Array.from(xCoords).sort((a, b) => a - b);
+        const sortedYCoords = Array.from(yCoords).sort((a, b) => a - b);
+        
+        console.log('[CanvasToHtml] Grid dimensions:', {
+            xCoords: sortedXCoords,
+            yCoords: sortedYCoords,
+            nodeCount: nodes.length
+        });
+        
+        // Create grid template areas
+        const gridAreas = this.createGridAreas(nodes, sortedXCoords, sortedYCoords);
+        
+        // Generate node content
+        const nodeContents = await Promise.all(nodes.map(async node => {
+            try {
+                if (node.type === 'file' && node.file) {
+                    const file = this.app.vault.getAbstractFileByPath(node.file);
+                    if (file instanceof TFile) {
+                        const content = await this.app.vault.read(file);
+                        return `<div class="node" style="grid-area: ${node.id}">${content}</div>`;
+                    } else {
+                        console.warn(`[CanvasToHtml] File not found for node ${node.id}: ${node.file}`);
+                    }
+                }
+                return `<div class="node" style="grid-area: ${node.id}">${node.id}</div>`;
+            } catch (error) {
+                console.error(`[CanvasToHtml] Error processing node ${node.id}:`, error);
+                return `<div class="node" style="grid-area: ${node.id}">Error loading content</div>`;
+            }
+        }));
 
-		containerEl.empty();
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #obsidian-canvas {
+            display: grid;
+            grid-template-areas: ${gridAreas};
+            gap: 12px;
+            padding: 12px;
+        }
+        .node {
+            border: 1px solid #ccc;
+            padding: 8px;
+            min-width: 12px;
+            min-height: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="obsidian-canvas">
+        ${nodeContents.join('\n')}
+    </div>
+</body>
+</html>`;
+    }
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+    private createGridAreas(nodes: CanvasNode[], xCoords: number[], yCoords: number[]): string {
+        // Create a 2D array to represent the grid
+        const grid: string[][] = Array(yCoords.length - 1)
+            .fill(null)
+            .map(() => Array(xCoords.length - 1).fill('.'));
+
+        // Place nodes in the grid
+        nodes.forEach(node => {
+            const startX = xCoords.indexOf(node.x);
+            const startY = yCoords.indexOf(node.y);
+            const endX = xCoords.indexOf(node.x + node.width);
+            const endY = yCoords.indexOf(node.y + node.height);
+
+            if (startX === -1 || startY === -1 || endX === -1 || endY === -1) {
+                console.error(`[CanvasToHtml] Invalid coordinates for node ${node.id}:`, {
+                    node,
+                    startX,
+                    startY,
+                    endX,
+                    endY
+                });
+                return;
+            }
+
+            // Fill the grid area for this node
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    grid[y][x] = node.id;
+                }
+            }
+        });
+
+        // Convert grid to CSS grid-template-areas
+        return grid.map(row => `"${row.join(' ')}"`).join('\n');
+    }
+
+    private async saveHtmlFile(html: string) {
+        try {
+            const file = await this.app.vault.create(
+                'canvas-export.html',
+                html
+            );
+            console.log('[CanvasToHtml] Successfully exported canvas to:', file.path);
+            new Notice(`Canvas exported to ${file.path}`);
+        } catch (error) {
+            console.error('[CanvasToHtml] Failed to save HTML file:', error);
+            throw error;
+        }
+    }
 }
