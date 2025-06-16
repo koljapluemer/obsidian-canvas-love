@@ -1,38 +1,5 @@
-import { Plugin, TFile, Notice } from 'obsidian';
-
-interface CanvasNode {
-    id: string;
-    type: string;
-    text?: string;
-    file?: string;
-    subpath?: string;
-    url?: string;
-    label?: string;
-    background?: string;
-    backgroundStyle?: 'cover' | 'ratio' | 'repeat';
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    color?: string;
-}
-
-interface CanvasEdge {
-    id: string;
-    fromNode: string;
-    fromSide?: 'top' | 'right' | 'bottom' | 'left';
-    fromEnd?: 'none' | 'arrow';
-    toNode: string;
-    toSide?: 'top' | 'right' | 'bottom' | 'left';
-    toEnd?: 'none' | 'arrow';
-    color?: string;
-    label?: string;
-}
-
-interface CanvasData {
-    nodes: CanvasNode[];
-    edges: CanvasEdge[];
-}
+import { Plugin, Notice, TFile } from 'obsidian';
+import { CanvasData, AllCanvasNodeData, CanvasEdgeData, CanvasNodeData } from 'obsidian/canvas';
 
 export default class CanvasToHtmlPlugin extends Plugin {
     async onload() {
@@ -85,9 +52,32 @@ export default class CanvasToHtmlPlugin extends Plugin {
             throw new Error(error);
         }
 
-        // Convert the canvas data to match the spec
-        const nodes = Array.from(canvas.nodes.values()) as CanvasNode[];
-        const edges = Array.from(canvas.edges.values()) as CanvasEdge[];
+        // Get the raw JSON data from the canvas
+        const nodes = Array.from(canvas.nodes.values()).map((node: CanvasNodeData) => ({
+            id: node.id,
+            type: node.type,
+            text: node.text,
+            file: node.file,
+            url: node.url,
+            label: node.label,
+            x: node.x,
+            y: node.y,
+            width: node.width,
+            height: node.height,
+            color: node.color
+        })) as AllCanvasNodeData[];
+
+        const edges = Array.from(canvas.edges.values()).map((edge: CanvasEdgeData) => ({
+            id: edge.id,
+            fromNode: edge.fromNode,
+            fromSide: edge.fromSide,
+            fromEnd: edge.fromEnd,
+            toNode: edge.toNode,
+            toSide: edge.toSide,
+            toEnd: edge.toEnd,
+            color: edge.color,
+            label: edge.label
+        }));
         
         return { nodes, edges };
     }
@@ -123,30 +113,44 @@ export default class CanvasToHtmlPlugin extends Plugin {
         const nodeContents = await Promise.all(nodes.map(async node => {
             try {
                 let content = '';
+                console.log('[CanvasToHtml] Processing node:', {
+                    id: node.id,
+                    type: node.type,
+                    text: 'text' in node ? node.text : undefined,
+                    file: 'file' in node ? node.file : undefined,
+                    url: 'url' in node ? node.url : undefined,
+                    label: 'label' in node ? node.label : undefined
+                });
                 
-                switch (node.type) {
-                    case 'text':
-                        content = node.text || '';
-                        break;
-                    case 'file':
-                        if (node.file) {
-                            const file = this.app.vault.getAbstractFileByPath(node.file);
-                            if (file instanceof TFile) {
-                                content = await this.app.vault.read(file);
-                            }
-                        }
-                        break;
-                    case 'link':
-                        content = node.url || '';
-                        break;
-                    case 'group':
-                        content = node.label || '';
-                        break;
+                // @ts-ignore - we know these properties exist from the debug output
+                if (node.file) {
+                    console.log('[CanvasToHtml] Processing file node:', node.file);
+                    const file = this.app.vault.getAbstractFileByPath(node.file);
+                    console.log('[CanvasToHtml] Found file:', file);
+                    if (file instanceof TFile) {
+                        content = await this.app.vault.read(file);
+                        console.log('[CanvasToHtml] File content length:', content.length);
+                        // Remove frontmatter if it exists
+                        content = content.replace(/^---[\s\S]*?---\n/, '');
+                        console.log('[CanvasToHtml] Content after frontmatter removal:', content);
+                    }
+                } else if (node.text) {
+                    console.log('[CanvasToHtml] Processing text node:', node.text);
+                    content = node.text;
+                } else if (node.url) {
+                    console.log('[CanvasToHtml] Processing link node:', node.url);
+                    content = node.url;
+                } else if (node.label) {
+                    console.log('[CanvasToHtml] Processing group node:', node.label);
+                    content = node.label;
+                } else {
+                    console.log('[CanvasToHtml] Unknown node type or missing properties:', node);
                 }
+                console.log('[CanvasToHtml] Final content for node:', content);
 
                 return `<div class="node" style="grid-area: ${node.id}">${content}</div>`;
             } catch (error) {
-                console.error(`[CanvasToHtml] Error processing node ${node.id}:`, error);
+                console.error(`Error: [CanvasToHtml] Error processing node ${node.id}:`, error);
                 return `<div class="node" style="grid-area: ${node.id}">Error loading content</div>`;
             }
         }));
@@ -178,7 +182,7 @@ export default class CanvasToHtmlPlugin extends Plugin {
 </html>`;
     }
 
-    private createGridAreas(nodes: CanvasNode[], xCoords: number[], yCoords: number[]): string {
+    private createGridAreas(nodes: AllCanvasNodeData[], xCoords: number[], yCoords: number[]): string {
         // Create a 2D array to represent the grid
         const grid: string[][] = Array(yCoords.length - 1)
             .fill(null)

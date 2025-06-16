@@ -1,0 +1,16 @@
+{
+	"nodes":[
+		{"id":"df74deda907d4efb","type":"text","text":"Lessons Learned","x":-320,"y":-320,"width":250,"height":60},
+		{"id":"75386516b69b3828","type":"text","text":"[[pytest]] is incredibly annoying and hates [[module approach]]\n","x":-169,"y":-127,"width":489,"height":67},
+		{"id":"ecd05a3afed08f81","type":"text","text":"[[unittest]] barely fucking works","x":20,"y":80,"width":250,"height":60},
+		{"id":"d5f73d01d9956f3e","type":"text","text":"feels like architecture concept is coming along","x":-640,"y":20,"width":380,"height":60},
+		{"id":"3c72feab6a0685b2","type":"file","file":"Thoughts/~ use OpenAPI spec to make Django REST communicate with frontend.md","x":-420,"y":220,"width":400,"height":200},
+		{"id":"a8a173cfe0d7e407","type":"file","file":"Media/Pasted image 20250609222322.png","x":-800,"y":-428,"width":400,"height":337}
+	],
+	"edges":[
+		{"id":"b8cd3905b81f3af7","fromNode":"df74deda907d4efb","fromSide":"bottom","toNode":"75386516b69b3828","toSide":"top"},
+		{"id":"7b21d1c11b985e53","fromNode":"75386516b69b3828","fromSide":"bottom","toNode":"ecd05a3afed08f81","toSide":"top"},
+		{"id":"72835f90f8fd270b","fromNode":"d5f73d01d9956f3e","fromSide":"bottom","toNode":"3c72feab6a0685b2","toSide":"left"},
+		{"id":"f555ae840e487bfa","fromNode":"a8a173cfe0d7e407","fromSide":"right","toNode":"df74deda907d4efb","toSide":"left"}
+	]
+}
