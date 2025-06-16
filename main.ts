@@ -3,19 +3,30 @@ import { Plugin, TFile, Notice } from 'obsidian';
 interface CanvasNode {
     id: string;
     type: string;
+    text?: string;
     file?: string;
+    subpath?: string;
+    url?: string;
+    label?: string;
+    background?: string;
+    backgroundStyle?: 'cover' | 'ratio' | 'repeat';
     x: number;
     y: number;
     width: number;
     height: number;
+    color?: string;
 }
 
 interface CanvasEdge {
     id: string;
     fromNode: string;
-    fromSide: string;
+    fromSide?: 'top' | 'right' | 'bottom' | 'left';
+    fromEnd?: 'none' | 'arrow';
     toNode: string;
-    toSide: string;
+    toSide?: 'top' | 'right' | 'bottom' | 'left';
+    toEnd?: 'none' | 'arrow';
+    color?: string;
+    label?: string;
 }
 
 interface CanvasData {
@@ -73,8 +84,12 @@ export default class CanvasToHtmlPlugin extends Plugin {
             console.error('[CanvasToHtml]', error);
             throw new Error(error);
         }
+
+        // Convert the canvas data to match the spec
+        const nodes = Array.from(canvas.nodes.values()) as CanvasNode[];
+        const edges = Array.from(canvas.edges.values()) as CanvasEdge[];
         
-        return canvas;
+        return { nodes, edges };
     }
 
     private async generateHtml(canvasData: CanvasData): Promise<string> {
@@ -101,28 +116,35 @@ export default class CanvasToHtmlPlugin extends Plugin {
         const sortedXCoords = Array.from(xCoords).sort((a, b) => a - b);
         const sortedYCoords = Array.from(yCoords).sort((a, b) => a - b);
         
-        console.log('[CanvasToHtml] Grid dimensions:', {
-            xCoords: sortedXCoords,
-            yCoords: sortedYCoords,
-            nodeCount: nodes.length
-        });
-        
         // Create grid template areas
         const gridAreas = this.createGridAreas(nodes, sortedXCoords, sortedYCoords);
         
         // Generate node content
         const nodeContents = await Promise.all(nodes.map(async node => {
             try {
-                if (node.type === 'file' && node.file) {
-                    const file = this.app.vault.getAbstractFileByPath(node.file);
-                    if (file instanceof TFile) {
-                        const content = await this.app.vault.read(file);
-                        return `<div class="node" style="grid-area: ${node.id}">${content}</div>`;
-                    } else {
-                        console.warn(`[CanvasToHtml] File not found for node ${node.id}: ${node.file}`);
-                    }
+                let content = '';
+                
+                switch (node.type) {
+                    case 'text':
+                        content = node.text || '';
+                        break;
+                    case 'file':
+                        if (node.file) {
+                            const file = this.app.vault.getAbstractFileByPath(node.file);
+                            if (file instanceof TFile) {
+                                content = await this.app.vault.read(file);
+                            }
+                        }
+                        break;
+                    case 'link':
+                        content = node.url || '';
+                        break;
+                    case 'group':
+                        content = node.label || '';
+                        break;
                 }
-                return `<div class="node" style="grid-area: ${node.id}">${node.id}</div>`;
+
+                return `<div class="node" style="grid-area: ${node.id}">${content}</div>`;
             } catch (error) {
                 console.error(`[CanvasToHtml] Error processing node ${node.id}:`, error);
                 return `<div class="node" style="grid-area: ${node.id}">Error loading content</div>`;
@@ -194,12 +216,9 @@ export default class CanvasToHtmlPlugin extends Plugin {
 
     private async saveHtmlFile(html: string) {
         try {
-            const file = await this.app.vault.create(
-                'canvas-export.html',
-                html
-            );
-            console.log('[CanvasToHtml] Successfully exported canvas to:', file.path);
-            new Notice(`Canvas exported to ${file.path}`);
+            const fileName = `canvas-export-${Date.now()}.html`;
+            await this.app.vault.create(fileName, html);
+            new Notice(`Canvas exported to ${fileName}`);
         } catch (error) {
             console.error('[CanvasToHtml] Failed to save HTML file:', error);
             throw error;
