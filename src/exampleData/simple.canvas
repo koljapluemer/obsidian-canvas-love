@@ -1,0 +1,15 @@
+{
+	"nodes":[
+		{"id":"ed9bb61726194d22","x":-540,"y":80,"width":840,"height":100,"type":"file","file":"Thoughts/📝 Educational Games Design﹕ Creating an Effective and Engaging Learning Experience.md"},
+		{"id":"3a5b7488e98b7cd2","x":-460,"y":-240,"width":380,"height":50,"color":"6","type":"file","file":"Thoughts/transmissionism.md"},
+		{"id":"5d7e12aa32f09159","x":-540,"y":30,"width":250,"height":50,"type":"text","text":"source:"},
+		{"id":"0233dab63f757984","x":-540,"y":-80,"width":280,"height":50,"color":"4","type":"file","file":"Thoughts/cognitivism.md"},
+		{"id":"ecd62f2a022e5c66","type":"file","file":"Thoughts/behaviorism.md","x":-540,"y":-460,"width":280,"height":50,"color":"4"},
+		{"id":"81c1253f700bdfe7","x":-40,"y":-30,"width":340,"height":60,"color":"1","type":"file","file":"Thoughts/constructivism.md"}
+	],
+	"edges":[
+		{"id":"e13791e8c19d87ee","fromNode":"81c1253f700bdfe7","fromSide":"top","toNode":"3a5b7488e98b7cd2","toSide":"right","color":"1","label":"*not* based on"},
+		{"id":"7c9af1be65cac59f","fromNode":"0233dab63f757984","fromSide":"right","toNode":"3a5b7488e98b7cd2","toSide":"bottom","color":"4","label":"based on"},
+		{"id":"e0ff77ddced40093","fromNode":"ecd62f2a022e5c66","fromSide":"right","toNode":"3a5b7488e98b7cd2","toSide":"top","color":"4","label":"based on"}
+	]
+}
