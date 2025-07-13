@@ -1,3 +1,6 @@
+> [!NOTE]  
+> *Archived Prototype. I will return to this crazy project when I ever have lots of time at my hands.*
+
 # Obsidian Canvas Love
 
 An Obsidian plugin I started to make Canvas more useful.
